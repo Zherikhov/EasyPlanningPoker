@@ -1,12 +1,12 @@
 package com.zherikhov.easyplanningpoker.infrastructure.persistence.service;
 
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.dao.UserProfilesJpaRepository;
-import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
-import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserProfiles;
+import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserProfile;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UserProfilesService {
@@ -16,19 +16,19 @@ public class UserProfilesService {
         this.userProfilesJpaRepository = userProfilesJpaRepository;
     }
 
-    public List<UserProfiles> findAll() {
+    public List<UserProfile> findAll() {
         return userProfilesJpaRepository.findAll();
     }
 
-    public Optional<UserProfiles> findById(User user) {
-        return userProfilesJpaRepository.findById(user);
+    public Optional<UserProfile> findById(UUID id) {
+        return userProfilesJpaRepository.findById(id);
     }
 
-    public UserProfiles save(UserProfiles userProfiles) {
-        return userProfilesJpaRepository.save(userProfiles);
+    public UserProfile save(UserProfile userProfile) {
+        return userProfilesJpaRepository.save(userProfile);
     }
 
-    public void deleteById(User user) {
-        userProfilesJpaRepository.deleteById(user);
+    public void deleteById(UUID id) {
+        userProfilesJpaRepository.deleteById(id);
     }
 }

@@ -1,7 +1,9 @@
 package com.zherikhov.easyplanningpoker.infrastructure.persistence.dao;
 
-import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserProfiles;
+import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface UserProfilesJpaRepository extends JpaRepository<UserProfiles, com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User> {
+import java.util.UUID;
+
+public interface UserProfilesJpaRepository extends JpaRepository<UserProfile, UUID> {
 }

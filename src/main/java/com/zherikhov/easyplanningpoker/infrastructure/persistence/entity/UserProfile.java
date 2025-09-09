@@ -5,14 +5,18 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
 @Table(name = "user_profiles")
-public class UserProfiles {
+public class UserProfile {
 
     @Id
+    @GeneratedValue
+    private UUID id;
+
     @OneToOne(optional = false)
     @JoinColumn(name = "user_id")
     private User user;
@@ -29,5 +33,5 @@ public class UserProfiles {
     @Column(name = "last_login")
     private Instant lastLogin;
 
-    public UserProfiles() {}
+    public UserProfile() {}
 }
