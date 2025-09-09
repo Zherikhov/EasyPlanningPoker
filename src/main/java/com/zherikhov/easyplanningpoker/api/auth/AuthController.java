@@ -1,7 +1,7 @@
 package com.zherikhov.easyplanningpoker.api.auth;
 
-import com.zherikhov.easyplanningpoker.application.RegisterRequest;
-import com.zherikhov.easyplanningpoker.application.RegistrationService;
+import com.zherikhov.easyplanningpoker.application.registration.RegisterRequest;
+import com.zherikhov.easyplanningpoker.application.registration.RegistrationService;
 import com.zherikhov.easyplanningpoker.application.UserResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;

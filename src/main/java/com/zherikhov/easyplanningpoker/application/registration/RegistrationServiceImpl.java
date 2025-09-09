@@ -1,5 +1,6 @@
-package com.zherikhov.easyplanningpoker.application;
+package com.zherikhov.easyplanningpoker.application.registration;
 
+import com.zherikhov.easyplanningpoker.application.UserResponse;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserProfile;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserProfilesService;
@@ -24,13 +25,12 @@ public class RegistrationServiceImpl implements RegistrationService {
 
     @Override
     public UserResponse register(RegisterRequest req) {
-        // Check if email already exists
+
         Optional<User> existingByEmail = userService.findByEmail(req.email());
         if (existingByEmail.isPresent()) {
             throw new IllegalArgumentException("Email already registered");
         }
 
-        // Create user
         User user = new User();
         String username = deriveUsernameFromEmail(req.email());
         user.setUsername(username);
@@ -39,7 +39,6 @@ public class RegistrationServiceImpl implements RegistrationService {
 
         user = userService.save(user);
 
-        // Create user profile
         UserProfile profile = new UserProfile();
         profile.setUser(user);
         profile.setDisplayName(req.displayName());

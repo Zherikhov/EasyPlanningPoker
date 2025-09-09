@@ -1,6 +1,7 @@
 package com.zherikhov.easyplanningpoker.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
@@ -9,8 +10,7 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.util.UUID;
 
-@Getter
-@Setter
+@Data
 @Entity
 @Table(name = "estimations")
 @IdClass(Estimation.EstimationId.class)

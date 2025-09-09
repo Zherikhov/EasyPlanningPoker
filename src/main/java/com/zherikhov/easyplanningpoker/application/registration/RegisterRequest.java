@@ -1,4 +1,4 @@
-package com.zherikhov.easyplanningpoker.application;
+package com.zherikhov.easyplanningpoker.application.registration;
 
 import jakarta.validation.constraints.*;
 
