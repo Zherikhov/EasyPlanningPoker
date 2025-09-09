@@ -1,0 +1,72 @@
+package com.zherikhov.easyplanningpoker.application;
+
+import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
+import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserProfile;
+import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserProfilesService;
+import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserService;
+import org.springframework.stereotype.Service;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Optional;
+
+@Service
+public class RegistrationServiceImpl implements RegistrationService {
+
+    private final UserService userService;
+    private final UserProfilesService userProfilesService;
+
+    public RegistrationServiceImpl(UserService userService, UserProfilesService userProfilesService) {
+        this.userService = userService;
+        this.userProfilesService = userProfilesService;
+    }
+
+    @Override
+    public UserResponse register(RegisterRequest req) {
+        // Check if email already exists
+        Optional<User> existingByEmail = userService.findByEmail(req.email());
+        if (existingByEmail.isPresent()) {
+            throw new IllegalArgumentException("Email already registered");
+        }
+
+        // Create user
+        User user = new User();
+        String username = deriveUsernameFromEmail(req.email());
+        user.setUsername(username);
+        user.setEmail(req.email());
+        user.setPasswordHash(hashPassword(req.password()));
+
+        user = userService.save(user);
+
+        // Create user profile
+        UserProfile profile = new UserProfile();
+        profile.setUser(user);
+        profile.setDisplayName(req.displayName());
+        userProfilesService.save(profile);
+
+        return new UserResponse(user.getId(), user.getEmail(), profile.getDisplayName());
+    }
+
+    private String deriveUsernameFromEmail(String email) {
+        int at = email.indexOf('@');
+        if (at > 0) return email.substring(0, at);
+        return email;
+    }
+
+    private String hashPassword(String password) {
+        // Minimal hashing to avoid storing plain text; for production, use BCrypt.
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            // Fallback to plain string if hashing algorithm not available (should not happen)
+            return password;
+        }
+    }
+}
