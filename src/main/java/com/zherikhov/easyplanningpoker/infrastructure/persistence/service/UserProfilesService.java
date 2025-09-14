@@ -24,6 +24,10 @@ public class UserProfilesService {
         return userProfilesJpaRepository.findById(id);
     }
 
+    public Optional<UserProfile> findByUserId(UUID userId) {
+        return userProfilesJpaRepository.findByUser_Id(userId);
+    }
+
     public UserProfile save(UserProfile userProfile) {
         return userProfilesJpaRepository.save(userProfile);
     }

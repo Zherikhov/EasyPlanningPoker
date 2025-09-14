@@ -28,19 +28,29 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
-        UserResponse response = registrationService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
+        System.out.println(request.toString());
+        try {
+            UserResponse response = registrationService.register(request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of(
+                            "error", "EMAIL_TAKEN",
+                            "message", ex.getMessage()
+                    ));
+        }
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest request) {
+        System.out.println(request.toString());
         return authService.login(request)
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of(
                                 "error", "INVALID_CREDENTIALS",
-                                "message", "Email or password is incorrect"
+                                "message", "Неверный email или пароль"
                         )));
     }
 }
