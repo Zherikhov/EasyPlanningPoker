@@ -71,6 +71,9 @@ export default function BoardDetails() {
               <div><span className="text-gray-500">Создана:</span> {new Date(board.createdAt).toLocaleString()}</div>
               <div><span className="text-gray-500">ID:</span> {board.id}</div>
             </div>
+            <div className="mt-4">
+              <button onClick={() => navigate(`/boards/${board.id}/estimate`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Перейти к оценке</button>
+            </div>
           </div>
         )}
       </main>
