@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Boards from './pages/Boards.jsx'
+import BoardDetails from './pages/BoardDetails.jsx'
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/boards" element={<Boards />} />
+      <Route path="/boards/:id" element={<BoardDetails />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )

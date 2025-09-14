@@ -2,6 +2,7 @@ package com.zherikhov.easyplanningpoker.infrastructure.persistence.service;
 
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.dao.BoardJpaRepository;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.Board;
+import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -10,25 +11,21 @@ import java.util.UUID;
 
 @Service
 public class BoardService {
-    private final BoardJpaRepository boardJpaRepository;
+    private final BoardJpaRepository repository;
 
-    public BoardService(BoardJpaRepository boardJpaRepository) {
-        this.boardJpaRepository = boardJpaRepository;
+    public BoardService(BoardJpaRepository repository) {
+        this.repository = repository;
     }
 
-    public List<Board> findAll() {
-        return boardJpaRepository.findAll();
+    public List<Board> findByOwner(User owner) {
+        return repository.findByOwner(owner);
     }
 
     public Optional<Board> findById(UUID id) {
-        return boardJpaRepository.findById(id);
+        return repository.findById(id);
     }
 
     public Board save(Board board) {
-        return boardJpaRepository.save(board);
-    }
-
-    public void deleteById(UUID id) {
-        boardJpaRepository.deleteById(id);
+        return repository.save(board);
     }
 }

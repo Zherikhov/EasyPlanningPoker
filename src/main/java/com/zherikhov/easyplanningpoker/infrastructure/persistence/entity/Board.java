@@ -11,16 +11,15 @@ import java.util.UUID;
 @Entity
 @Table(name = "boards")
 public class Board {
-
     @Id
     @GeneratedValue
     private UUID id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name", nullable = false, length = 200)
     private String name;
 
     @Column(name = "description")
@@ -29,6 +28,4 @@ public class Board {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
-
-    public Board() {}
 }
