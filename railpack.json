@@ -9,7 +9,7 @@
     "install": {
       "commands": [
         { "src": ".", "dest": "." },
-        { "cmd": "cd frontend && npm ci --include=dev" },
+        { "cmd": "bash -lc \"cd frontend && npm ci --include=dev\"" },
         { "path": "frontend/node_modules/.bin" }
       ],
       "caches": ["npm"]
@@ -17,8 +17,7 @@
     "build-frontend": {
       "inputs": [ { "step": "install" } ],
       "commands": [
-        { "path": "frontend/node_modules/.bin" },
-        { "cmd": "cd frontend && npm run build" },
+        { "cmd": "bash -lc \"cd frontend && npm run build\"" },
         { "cmd": "rm -rf src/main/resources/static/* || true" },
         { "cmd": "mkdir -p src/main/resources/static" },
         { "cmd": "cp -r frontend/dist/* src/main/resources/static/" }
