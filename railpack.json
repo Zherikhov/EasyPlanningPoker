@@ -19,7 +19,7 @@
     },
 
     "build-frontend": {
-      "inputs": ["install"],
+      "inputs": [ { "step": "install" } ],
       "commands": [
         "cd frontend && /mise/shims/npm run build",
         "rm -rf src/main/resources/static/* || true",
@@ -29,7 +29,7 @@
     },
 
     "build-backend": {
-      "inputs": ["build-frontend"],
+      "inputs": [ { "step": "build-frontend" } ],
       "commands": [
         "/mise/shims/mvn -DskipTests clean package"
       ],
@@ -38,8 +38,7 @@
   },
 
   "deploy": {
-    "base": { "image": "ghcr.io/railwayapp/railpack-runtime:latest" },
-    "inputs": ["build-backend"],
+    "inputs": [ { "step": "build-backend" } ],
     "startCommand": "/mise/shims/java -Dserver.port=$PORT -jar target/*jar"
   }
 }
