@@ -8,6 +8,7 @@
   "steps": {
     "install": {
       "commands": [
+        { "path": "/mise/shims" },
         { "src": ".", "dest": "." },
         { "cmd": "bash -lc \"cd frontend && npm ci --include=dev\"" },
         { "path": "frontend/node_modules/.bin" }
@@ -17,6 +18,8 @@
     "build-frontend": {
       "inputs": [ { "step": "install" } ],
       "commands": [
+        { "path": "/mise/shims" },
+        { "path": "frontend/node_modules/.bin" },
         { "cmd": "bash -lc \"cd frontend && npm run build\"" },
         { "cmd": "rm -rf src/main/resources/static/* || true" },
         { "cmd": "mkdir -p src/main/resources/static" },
@@ -25,14 +28,16 @@
     },
     "build-backend": {
       "inputs": [ { "step": "build-frontend" } ],
-      "commands": [ { "cmd": "mvn -DskipTests clean package" } ],
+      "commands": [
+        { "path": "/mise/shims" },
+        { "cmd": "mvn -DskipTests clean package" }
+      ],
       "caches": ["maven"],
       "deployOutputs": [ { "include": ["target/*.jar"] } ]
     }
   },
   "deploy": {
     "base": { "image": "ghcr.io/railwayapp/railpack-runtime:latest" },
-    "paths": [ "/mise/shims" ],
     "inputs": [
       {
         "step": "packages:mise",
