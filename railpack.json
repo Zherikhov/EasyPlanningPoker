@@ -1,25 +1,19 @@
 {
   "$schema": "https://schema.railpack.com",
-  "packages": { "node": "24", "java": "21", "maven": "3.9.11" },
-
-  "env": { "PATH": "/mise/shims:$PATH" },
-
+  "packages": { "java": "21", "maven": "3.9.11", "node": "20" },
   "caches": {
     "npm":   { "directory": "/root/.npm",           "type": "shared" },
     "maven": { "directory": "/root/.m2/repository", "type": "shared" }
   },
-
   "steps": {
     "install": {
       "commands": [
-        "COPY:./ ./",
         "cd frontend && /mise/shims/npm ci --include=dev"
       ],
       "caches": ["npm"]
     },
-
     "build-frontend": {
-      "inputs": [ { "step": "install" } ],
+      "inputs": ["install"],
       "commands": [
         "cd frontend && /mise/shims/npm run build",
         "rm -rf src/main/resources/static/* || true",
@@ -27,18 +21,16 @@
         "cp -r frontend/dist/* src/main/resources/static/"
       ]
     },
-
     "build-backend": {
-      "inputs": [ { "step": "build-frontend" } ],
+      "inputs": ["build-frontend"],
       "commands": [
         "/mise/shims/mvn -DskipTests clean package"
       ],
       "caches": ["maven"]
     }
   },
-
   "deploy": {
-    "inputs": [ { "step": "build-backend" } ],
+    "inputs": ["build-backend"],
     "startCommand": "/mise/shims/java -Dserver.port=$PORT -jar target/*jar"
   }
 }
