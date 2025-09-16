@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "packages": {
+    "node": "24",
+    "java": "21",
+    "maven": "3.9.11"
+  },
+  "caches": {
+    "npm": { "directory": "/root/.npm", "type": "shared" },
+    "maven": { "directory": "/root/.m2/repository", "type": "shared" }
+  },
+  "steps": {
+    "install": {
+      "commands": [
+        "COPY:./ ./",
+        "cd frontend && npm ci --include=dev",
+        "PATH:frontend/node_modules/.bin"
+      ],
+      "caches": ["npm"]
+    },
+    "build-frontend": {
+      "inputs": [{ "step": "install", "include": ["."] }],
+      "commands": [
+        "cd frontend && npm run build",
+        "rm -rf src/main/resources/static/*",
+        "mkdir -p src/main/resources/static",
+        "cp -r frontend/dist/* src/main/resources/static/"
+      ]
+    },
+    "build-backend": {
+      "inputs": [{ "step": "build-frontend", "include": ["."] }],
+      "commands": [
+        "mvn -DskipTests clean package"
+      ],
+      "caches": ["maven"]
+    }
+  },
+  "deploy": {
+    "inputs": [{ "step": "build-backend", "include": ["."] }],
+    "startCommand": "java -Dserver.port=$PORT -jar target/*jar"
+  }
+}
