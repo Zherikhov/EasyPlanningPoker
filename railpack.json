@@ -2,36 +2,50 @@
   "$schema": "https://schema.railpack.com",
   "packages": { "node": "24", "java": "21", "maven": "3.9.11" },
   "caches": {
-    "npm":   { "directory": "/root/.npm",            "type": "shared" },
-    "maven": { "directory": "/root/.m2/repository",  "type": "shared" }
+    "npm":   { "directory": "/root/.npm",           "type": "shared" },
+    "maven": { "directory": "/root/.m2/repository", "type": "shared" }
   },
   "steps": {
     "install": {
       "commands": [
-        "COPY:./ ./",
-        "cd frontend && npm ci --include=dev",
-        "PATH:frontend/node_modules/.bin"
+        { "src": ".", "dest": "." },
+        { "cmd": "cd frontend && npm ci --include=dev" },
+        { "path": "frontend/node_modules/.bin" }
       ],
       "caches": ["npm"]
     },
     "build-frontend": {
-      "inputs": ["install"],
+      "inputs": [ { "step": "install" } ],
       "commands": [
-        "PATH:frontend/node_modules/.bin",
-        "cd frontend && npm run build",
-        "rm -rf src/main/resources/static/* || true",
-        "mkdir -p src/main/resources/static",
-        "cp -r frontend/dist/* src/main/resources/static/"
+        { "path": "frontend/node_modules/.bin" },
+        { "cmd": "cd frontend && npm run build" },
+        { "cmd": "rm -rf src/main/resources/static/* || true" },
+        { "cmd": "mkdir -p src/main/resources/static" },
+        { "cmd": "cp -r frontend/dist/* src/main/resources/static/" }
       ]
     },
     "build-backend": {
-      "inputs": ["build-frontend"],
-      "commands": [ "mvn -DskipTests clean package" ],
-      "caches": ["maven"]
+      "inputs": [ { "step": "build-frontend" } ],
+      "commands": [ { "cmd": "mvn -DskipTests clean package" } ],
+      "caches": ["maven"],
+      "deployOutputs": [ { "include": ["target/*.jar"] } ]
     }
   },
   "deploy": {
-    "inputs": ["build-backend"],
+    "base": { "image": "ghcr.io/railwayapp/railpack-runtime:latest" },
+    "paths": [ "/mise/shims" ],
+    "inputs": [
+      {
+        "step": "packages:mise",
+        "include": [
+          "/mise/shims",
+          "/mise/installs",
+          "/etc/mise/config.toml",
+          "/root/.local/state/mise"
+        ]
+      },
+      { "step": "build-backend" }
+    ],
     "startCommand": "java -Dserver.port=$PORT -jar target/*jar"
   }
 }
