@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // для dev-прокси можно переопределить адрес бекенда через переменную окружения
 const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:3344'
+// const apiTarget = 'https://easysprintpoker.com:3344/api/auth/'
 
 export default defineConfig({
     plugins: [react()],

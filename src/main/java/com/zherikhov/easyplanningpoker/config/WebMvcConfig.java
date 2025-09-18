@@ -13,9 +13,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173")
+                .allowedOrigins(
+                        "http://localhost:5173",
+                        "https://easysprintpoker.com",
+                        "https://www.easysprintpoker.com",
+                        "http://easysprintpoker.com",
+                        "http://www.easysprintpoker.com"
+                )
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                .allowedHeaders("Authorization", "Content-Type", "X-Requested-With", "Accept")
+                .allowedHeaders("*")
                 .exposedHeaders("Location")
                 .allowCredentials(true)
                 .maxAge(3600);
@@ -32,11 +38,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Serve frontend build resources from classpath:/static/
-        // Spring Boot by default serves classpath:/static, so this is optional,
-        // but we keep it explicit in case of future changes.
+        // Serve frontend build resources primarily from the filesystem (frontend/dist),
+        // and fallback to classpath:/static/ if dist is missing.
+        // This allows opening public links like /login directly (SPA) when the frontend is built.
         registry.addResourceHandler("/**")
-                .addResourceLocations("classpath:/static/")
+                .addResourceLocations(
+                        // filesystem path (absolute) to frontend/dist
+                        "file:frontend/dist/",
+                        // fallback to classpath in case dist is not present
+                        "classpath:/static/")
                 .resourceChain(true);
     }
 }

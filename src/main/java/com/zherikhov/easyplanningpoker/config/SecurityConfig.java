@@ -32,13 +32,32 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 // Правила доступа
                 .authorizeHttpRequests(auth -> auth
+                        // Public auth endpoints
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        // CORS preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // Public read-only endpoints if any
                         .requestMatchers(HttpMethod.GET, "/api/users/me").permitAll()
                         .requestMatchers("/api/boards/**").permitAll()
-                        // статика/документация при необходимости
+                        // Static and SPA entry must be public
+                        .requestMatchers(HttpMethod.GET,
+                                "/",
+                                "/index.html",
+                                "/favicon.ico",
+                                "/static/**",
+                                "/assets/**",
+                                "/*.js",
+                                "/*.css",
+                                "/*.ico",
+                                "/*.png",
+                                "/*.svg"
+                        ).permitAll()
+                        // SPA forward
+                        .requestMatchers(HttpMethod.GET, "/{path:[^\\.]*}").permitAll()
+                        // health
                         .requestMatchers("/actuator/health").permitAll()
+                        // Everything else requires auth
                         .anyRequest().authenticated()
                 );
         return http.build();
@@ -48,9 +67,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "https://easysprintpoker.com",
+                "https://www.easysprintpoker.com",
+                "http://easysprintpoker.com",
+                "http://www.easysprintpoker.com"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept"));
+        // Allow any headers to pass preflight (modern browsers send many client hints and sec-* headers)
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Location"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
@@ -58,6 +84,11 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    @Bean
+    public org.springframework.web.filter.ForwardedHeaderFilter forwardedHeaderFilter() {
+        return new org.springframework.web.filter.ForwardedHeaderFilter();
     }
 
     @Bean
