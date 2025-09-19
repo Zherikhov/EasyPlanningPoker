@@ -32,24 +32,19 @@ public class BoardsController {
     }
 
     @GetMapping
-    public ResponseEntity<?> list(HttpServletRequest request) {
-        Optional<User> userOpt = currentUser(request);
-        if (userOpt.isEmpty()) {
-            return unauthorized();
-        }
-        List<BoardResponse> boards = boardService.findByOwner(userOpt.get()).stream()
+    public ResponseEntity<?> list() {
+        User owner = currentUser().orElse(null);
+        if (owner == null) return unauthorized();
+        List<BoardResponse> boards = boardService.findByOwner(owner).stream()
                 .map(BoardResponse::from)
                 .toList();
         return ResponseEntity.ok(boards);
     }
 
     @PostMapping
-    public ResponseEntity<?> create(HttpServletRequest request, @Valid @RequestBody CreateBoardRequest dto) {
-        Optional<User> userOpt = currentUser(request);
-        if (userOpt.isEmpty()) {
-            return unauthorized();
-        }
-        User owner = userOpt.get();
+    public ResponseEntity<?> create(@Valid @RequestBody CreateBoardRequest dto) {
+        User owner = currentUser().orElse(null);
+        if (owner == null) return unauthorized();
         Board b = new Board();
         b.setOwner(owner);
         b.setName(dto.name());
@@ -59,9 +54,10 @@ public class BoardsController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> get(HttpServletRequest request, @PathVariable UUID id) {
-        Optional<User> userOpt = currentUser(request);
+    public ResponseEntity<?> get(@PathVariable UUID id) {
+        Optional<User> userOpt = currentUser();
         if (userOpt.isEmpty()) {
+            // Разрешаем просмотр чужих досок только авторизованным пользователям
             return unauthorized();
         }
         Optional<Board> boardOpt = boardService.findById(id);
@@ -69,20 +65,24 @@ public class BoardsController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Board not found"));
         }
         Board board = boardOpt.get();
-        if (!board.getOwner().getId().equals(userOpt.get().getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error("FORBIDDEN", "Access denied"));
-        }
+        // Любой авторизованный пользователь может просматривать чужие доски
         return ResponseEntity.ok(BoardResponse.from(board));
     }
 
-    private Optional<User> currentUser(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return Optional.empty();
-        }
-        String token = authHeader.substring(7);
+    private Optional<User> currentUser() {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return Optional.empty();
+        Object principal = auth.getPrincipal();
         try {
-            UUID userId = UUID.fromString(jwtProvider.getSubject(token));
+            String idStr;
+            if (principal instanceof org.springframework.security.core.userdetails.User u) {
+                idStr = u.getUsername();
+            } else if (principal instanceof String s) {
+                idStr = s;
+            } else {
+                return Optional.empty();
+            }
+            UUID userId = UUID.fromString(idStr);
             return userService.findById(userId);
         } catch (Exception e) {
             return Optional.empty();

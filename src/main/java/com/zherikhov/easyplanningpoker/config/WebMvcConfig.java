@@ -27,17 +27,31 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .maxAge(3600);
     }
 
-    // Forward all routes that are not API and not static resources to index.html
+    // Forward SPA routes to index.html, but do NOT grab static assets or API
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
-        // Single Page Application fallback. Use simple Ant patterns compatible with PathPatternParser.
-        // Forward any non-API path to index.html
+        // Root
         registry.addViewController("/").setViewName("forward:/index.html");
-        registry.addViewController("/{path:[^\\.]*}").setViewName("forward:/index.html");
+        // SPA known routes (top-level only). Do not use "/boards/**" as it would also catch "/boards/{id}/assets/..."
+        registry.addViewController("/boards").setViewName("forward:/index.html");
+        registry.addViewController("/boards/*").setViewName("forward:/index.html");
+        registry.addViewController("/login").setViewName("forward:/index.html");
+        registry.addViewController("/register").setViewName("forward:/index.html");
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Serve explicit assets folder from root and from SPA nested routes
+        registry.addResourceHandler(
+                        "/assets/**",
+                        "/boards/*/assets/**"
+                )
+                .addResourceLocations(
+                        "file:frontend/dist/assets/",
+                        "classpath:/static/assets/"
+                )
+                .resourceChain(true);
+
         // Serve frontend build resources primarily from the filesystem (frontend/dist),
         // and fallback to classpath:/static/ if dist is missing.
         // This allows opening public links like /login directly (SPA) when the frontend is built.

@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  * This is intentionally stateless in DB to keep changes minimal.
  */
 @RestController
-@RequestMapping("/api/boards/{id}")
+@RequestMapping({"/api/boards/{id}", "/boards/{id}"})
 public class EstimateController {
 
     private final JwtProvider jwtProvider;
@@ -52,7 +52,7 @@ public class EstimateController {
     // In-memory state per board
     private static final Map<UUID, RoundState> STATES = new ConcurrentHashMap<>();
     private static final Map<UUID, List<RoundSnapshot>> HISTORY = new ConcurrentHashMap<>();
-    private static final Map<UUID, CopyOnWriteArrayList<SseEmitter>> EMITTERS = new ConcurrentHashMap<>();
+    private static final Map<UUID, ConcurrentHashMap<UUID, SseEmitter>> EMITTERS = new ConcurrentHashMap<>();
 
     // --- Models ---
     public record TaskDto(String key, String title, String link, String description) {}
@@ -99,20 +99,20 @@ public class EstimateController {
     public record RoundRequest(String taskId, String title, String link, String description) {}
 
     // --- Helpers ---
-    private Optional<User> currentUser(HttpServletRequest request) {
-        String token = null;
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7);
-        }
-        if (token == null || token.isBlank()) {
-            // allow token in query for SSE
-            String q = request.getParameter("access_token");
-            if (q != null && !q.isBlank()) token = q;
-        }
-        if (token == null || token.isBlank()) return Optional.empty();
+    private Optional<User> currentUser() {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return Optional.empty();
+        Object principal = auth.getPrincipal();
         try {
-            UUID userId = UUID.fromString(jwtProvider.getSubject(token));
+            String idStr;
+            if (principal instanceof org.springframework.security.core.userdetails.User u) {
+                idStr = u.getUsername();
+            } else if (principal instanceof String s) {
+                idStr = s;
+            } else {
+                return Optional.empty();
+            }
+            UUID userId = UUID.fromString(idStr);
             return userService.findById(userId);
         } catch (Exception e) {
             return Optional.empty();
@@ -136,19 +136,25 @@ public class EstimateController {
     }
 
     private void emit(UUID boardId, String eventName, Object data) {
-        CopyOnWriteArrayList<SseEmitter> list = EMITTERS.computeIfAbsent(boardId, k -> new CopyOnWriteArrayList<>());
-        List<SseEmitter> dead = new ArrayList<>();
-        for (SseEmitter emitter : list) {
+        ConcurrentHashMap<UUID, SseEmitter> map = EMITTERS.computeIfAbsent(boardId, k -> new ConcurrentHashMap<>());
+        List<UUID> deadUsers = new ArrayList<>();
+        for (Map.Entry<UUID, SseEmitter> entry : map.entrySet()) {
+            UUID userId = entry.getKey();
+            SseEmitter emitter = entry.getValue();
             try {
                 SseEmitter.SseEventBuilder builder = SseEmitter.event()
                         .name(eventName)
                         .data(data);
                 emitter.send(builder);
-            } catch (Exception e) {
-                dead.add(emitter);
+            } catch (IllegalStateException | IOException ex) {
+                deadUsers.add(userId);
+                try { emitter.completeWithError(ex); } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                deadUsers.add(userId);
+                try { emitter.completeWithError(ex); } catch (Exception ignored) {}
             }
         }
-        if (!dead.isEmpty()) list.removeAll(dead);
+        for (UUID uid : deadUsers) { map.remove(uid); }
     }
 
     private static Map<String, String> error(String code, String message) {
@@ -228,9 +234,9 @@ public class EstimateController {
 
     // --- Endpoints ---
 
-    @GetMapping("/state")
-    public ResponseEntity<?> state(HttpServletRequest request, @PathVariable UUID id) {
-        Optional<User> uo = currentUser(request);
+    @GetMapping({"/state", "/estimate"})
+    public ResponseEntity<?> state(@PathVariable UUID id) {
+        Optional<User> uo = currentUser();
         if (uo.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED","Missing or invalid token"));
         ResponseEntity<?> access = checkBoardAccess(id, uo.get());
         if (access.getStatusCode().isError()) return access;
@@ -247,21 +253,39 @@ public class EstimateController {
 
     @GetMapping(path = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter events(HttpServletRequest request, @PathVariable UUID id) {
-        Optional<User> uo = currentUser(request);
+        Optional<User> uo = currentUser();
         if (uo.isEmpty()) return null;
-        SseEmitter emitter = new SseEmitter(0L);
-        EMITTERS.computeIfAbsent(id, k -> new CopyOnWriteArrayList<>()).add(emitter);
-        emitter.onCompletion(() -> EMITTERS.getOrDefault(id, new CopyOnWriteArrayList<>()).remove(emitter));
-        emitter.onTimeout(() -> EMITTERS.getOrDefault(id, new CopyOnWriteArrayList<>()).remove(emitter));
+        // 120 minutes timeout
+        long timeoutMs = 120L * 60L * 1000L;
+        SseEmitter emitter = new SseEmitter(timeoutMs);
+        // Remove previous emitter for same user on resubscribe to avoid leaks
+        UUID userId = uo.get().getId();
+        ConcurrentHashMap<UUID, SseEmitter> map = EMITTERS.computeIfAbsent(id, k -> new ConcurrentHashMap<>());
+        SseEmitter prev = map.put(userId, emitter);
+        if (prev != null) {
+            try { prev.complete(); } catch (Exception ignored) {}
+        }
+        Runnable remove = () -> {
+            SseEmitter current = map.get(userId);
+            if (current == emitter) {
+                map.remove(userId);
+            }
+        };
+        emitter.onCompletion(remove);
+        emitter.onTimeout(remove);
+        emitter.onError(t -> remove.run());
         try {
             emitter.send(SseEmitter.event().name("CONNECTED").data(Map.of("time", Instant.now().toString())));
-        } catch (IOException ignored) {}
+        } catch (IOException | IllegalStateException ex) {
+            try { emitter.completeWithError(ex); } catch (Exception ignored) {}
+            remove.run();
+        }
         return emitter;
     }
 
     @PostMapping("/join")
-    public ResponseEntity<?> join(HttpServletRequest request, @PathVariable UUID id) {
-        Optional<User> uo = currentUser(request);
+    public ResponseEntity<?> join(@PathVariable UUID id) {
+        Optional<User> uo = currentUser();
         if (uo.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED","Missing or invalid token"));
         User user = uo.get();
         Optional<Board> b = boardService.findById(id);
@@ -274,8 +298,8 @@ public class EstimateController {
     }
 
     @PostMapping("/vote")
-    public ResponseEntity<?> vote(HttpServletRequest request, @PathVariable UUID id, @RequestBody VoteRequest dto) {
-        Optional<User> uo = currentUser(request);
+    public ResponseEntity<?> vote(@PathVariable UUID id, @RequestBody VoteRequest dto) {
+        Optional<User> uo = currentUser();
         if (uo.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED","Missing or invalid token"));
         User user = uo.get();
         Optional<Board> b = boardService.findById(id);
@@ -299,8 +323,8 @@ public class EstimateController {
     }
 
     @PostMapping("/reveal")
-    public ResponseEntity<?> reveal(HttpServletRequest request, @PathVariable UUID id) {
-        Optional<User> uo = currentUser(request);
+    public ResponseEntity<?> reveal(@PathVariable UUID id) {
+        Optional<User> uo = currentUser();
         if (uo.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED","Missing or invalid token"));
         User user = uo.get();
         Optional<Board> b = boardService.findById(id);
@@ -327,8 +351,8 @@ public class EstimateController {
     }
 
     @PostMapping("/reset")
-    public ResponseEntity<?> reset(HttpServletRequest request, @PathVariable UUID id) {
-        Optional<User> uo = currentUser(request);
+    public ResponseEntity<?> reset(@PathVariable UUID id) {
+        Optional<User> uo = currentUser();
         if (uo.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED","Missing or invalid token"));
         User user = uo.get();
         Optional<Board> b = boardService.findById(id);
@@ -356,8 +380,8 @@ public class EstimateController {
     }
 
     @PostMapping("/round")
-    public ResponseEntity<?> round(HttpServletRequest request, @PathVariable UUID id, @RequestBody RoundRequest dto) {
-        Optional<User> uo = currentUser(request);
+    public ResponseEntity<?> round(@PathVariable UUID id, @RequestBody RoundRequest dto) {
+        Optional<User> uo = currentUser();
         if (uo.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED","Missing or invalid token"));
         User user = uo.get();
         Optional<Board> b = boardService.findById(id);
@@ -375,8 +399,8 @@ public class EstimateController {
     }
 
     @GetMapping("/history")
-    public ResponseEntity<?> history(HttpServletRequest request, @PathVariable UUID id, @RequestParam(name = "limit", required = false, defaultValue = "20") int limit) {
-        Optional<User> uo = currentUser(request);
+    public ResponseEntity<?> history(@PathVariable UUID id, @RequestParam(name = "limit", required = false, defaultValue = "20") int limit) {
+        Optional<User> uo = currentUser();
         if (uo.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED","Missing or invalid token"));
         Optional<Board> b = boardService.findById(id);
         if (b.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND","Board not found"));

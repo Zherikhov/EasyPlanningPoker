@@ -21,6 +21,12 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    private final com.zherikhov.easyplanningpoker.infrastructure.security.JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(com.zherikhov.easyplanningpoker.infrastructure.security.JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -39,7 +45,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public read-only endpoints if any
                         .requestMatchers(HttpMethod.GET, "/api/users/me").permitAll()
-                        .requestMatchers("/api/boards/**").permitAll()
+                        .requestMatchers("/api/boards/**").authenticated()
                         // Static and SPA entry must be public
                         .requestMatchers(HttpMethod.GET,
                                 "/",
@@ -47,19 +53,25 @@ public class SecurityConfig {
                                 "/favicon.ico",
                                 "/static/**",
                                 "/assets/**",
+                                "/login",
+                                "/register",
                                 "/*.js",
                                 "/*.css",
                                 "/*.ico",
                                 "/*.png",
                                 "/*.svg"
                         ).permitAll()
-                        // SPA forward
-                        .requestMatchers(HttpMethod.GET, "/{path:[^\\.]*}").permitAll()
+                        // Keep explicit boards SPA route if needed by frontend
+                        .requestMatchers(HttpMethod.GET, "/boards").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/boards/**").permitAll()
                         // health
                         .requestMatchers("/actuator/health").permitAll()
                         // Everything else requires auth
                         .anyRequest().authenticated()
                 );
+        // Add JWT auth filter
+        http.addFilterBefore(jwtAuthenticationFilter,
+                org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
