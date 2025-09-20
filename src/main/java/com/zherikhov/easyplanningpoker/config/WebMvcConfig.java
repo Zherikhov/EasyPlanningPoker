@@ -30,11 +30,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
     // Forward SPA routes to index.html, but do NOT grab static assets or API
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
-        // Root
+
+        // SPA entry
         registry.addViewController("/").setViewName("forward:/index.html");
-        // SPA known routes (top-level only). Do not use "/boards/**" as it would also catch "/boards/{id}/assets/..."
         registry.addViewController("/boards").setViewName("forward:/index.html");
         registry.addViewController("/boards/*").setViewName("forward:/index.html");
+        registry.addViewController("/boards/**").setViewName("forward:/index.html");
         registry.addViewController("/login").setViewName("forward:/index.html");
         registry.addViewController("/register").setViewName("forward:/index.html");
     }
@@ -43,8 +44,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // Serve explicit assets folder from root and from SPA nested routes
         registry.addResourceHandler(
-                        "/assets/**",
-                        "/boards/*/assets/**"
+                        "/assets/**"
+//                        "/boards/**/assets/**"
                 )
                 .addResourceLocations(
                         "file:frontend/dist/assets/",
@@ -52,15 +53,37 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 )
                 .resourceChain(true);
 
-        // Serve frontend build resources primarily from the filesystem (frontend/dist),
-        // and fallback to classpath:/static/ if dist is missing.
-        // This allows opening public links like /login directly (SPA) when the frontend is built.
+        // favicon и прочие стандартные файлы
+        registry.addResourceHandler("/favicon.ico")
+                .addResourceLocations("file:frontend/dist/favicon.ico", "classpath:/static/favicon.ico")
+                .resourceChain(true);
+
+        // Остальная сборка SPA (index.html и прочие файлы на корне дистрибутива)
         registry.addResourceHandler("/**")
                 .addResourceLocations(
-                        // filesystem path (absolute) to frontend/dist
                         "file:frontend/dist/",
-                        // fallback to classpath in case dist is not present
-                        "classpath:/static/")
-                .resourceChain(true);
+                        "classpath:/static/"
+                )
+                .resourceChain(true)
+                .addResolver(new org.springframework.web.servlet.resource.PathResourceResolver() {
+                    @Override
+                    protected org.springframework.core.io.Resource getResource(String resourcePath,
+                                                                              org.springframework.core.io.Resource location) throws java.io.IOException {
+                        org.springframework.core.io.Resource requested = location.createRelative(resourcePath);
+                        if (requested.exists() && requested.isReadable()) {
+                            return requested;
+                        }
+                        // SPA fallback: serve index.html for non-file paths (no dot) and non-API
+                        boolean isApi = resourcePath.startsWith("api/") || resourcePath.startsWith("/api/");
+                        boolean hasExtension = resourcePath.contains(".");
+                        if (!isApi && !hasExtension) {
+                            org.springframework.core.io.Resource index = location.createRelative("index.html");
+                            if (index.exists() && index.isReadable()) {
+                                return index;
+                            }
+                        }
+                        return null;
+                    }
+                });
     }
 }

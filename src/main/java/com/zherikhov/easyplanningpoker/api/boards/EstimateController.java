@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  * This is intentionally stateless in DB to keep changes minimal.
  */
 @RestController
-@RequestMapping({"/api/boards/{id}", "/boards/{id}"})
+@RequestMapping("/api/boards/{id}")
 public class EstimateController {
 
     private final JwtProvider jwtProvider;

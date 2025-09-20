@@ -8,7 +8,7 @@ const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:3344'
 export default defineConfig({
     plugins: [react()],
     // главное для сборки под Spring Boot static/
-    base: './',
+    base: '/',
     server: {
         port: 5173,
         proxy: {
