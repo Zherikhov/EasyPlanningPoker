@@ -1,19 +1,19 @@
 package com.zherikhov.easyplanningpoker.api.boards;
 
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.Board;
-import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.BoardMembers;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserProfile;
-import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.BoardMembersService;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.BoardService;
-import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserService;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserProfilesService;
-import com.zherikhov.easyplanningpoker.infrastructure.security.JwtProvider;
+import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotBlank;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -21,28 +21,24 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /**
  * Minimal in-memory implementation of planning poker estimation per board with SSE.
  * This is intentionally stateless in DB to keep changes minimal.
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/boards/{id}")
 public class EstimateController {
 
-    private final JwtProvider jwtProvider;
     private final UserService userService;
     private final BoardService boardService;
-    private final BoardMembersService boardMembersService;
     private final UserProfilesService userProfilesService;
 
-    public EstimateController(JwtProvider jwtProvider, UserService userService, BoardService boardService, BoardMembersService boardMembersService, UserProfilesService userProfilesService) {
-        this.jwtProvider = jwtProvider;
+    public EstimateController(UserService userService, BoardService boardService, UserProfilesService userProfilesService) {
         this.userService = userService;
         this.boardService = boardService;
-        this.boardMembersService = boardMembersService;
         this.userProfilesService = userProfilesService;
     }
 
@@ -98,10 +94,13 @@ public class EstimateController {
     public record VoteRequest(@NotBlank String value) {}
     public record RoundRequest(String taskId, String title, String link, String description) {}
 
-    // --- Helpers ---
     private Optional<User> currentUser() {
-        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) return Optional.empty();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            log.warn("Unauthorized access: no authentication in context");
+            return Optional.empty();
+        }
+
         Object principal = auth.getPrincipal();
         try {
             String idStr;
@@ -110,11 +109,13 @@ public class EstimateController {
             } else if (principal instanceof String s) {
                 idStr = s;
             } else {
+                log.debug("Unsupported principal type: {}", principal.getClass().getName());
                 return Optional.empty();
             }
             UUID userId = UUID.fromString(idStr);
             return userService.findById(userId);
         } catch (Exception e) {
+            log.debug("Failed to resolve current user from principal: {}", e.getMessage());
             return Optional.empty();
         }
     }
@@ -248,6 +249,7 @@ public class EstimateController {
         resp.put("participants", participants(board, s));
         resp.put("allowedValues", FIBONACCI);
         resp.put("summary", s.status==RoundStatus.revealed ? s.summary : null);
+        log.debug("State fetched: boardId={}, status={}, votes={}, task={}", id, s.status, s.votes.size(), s.task != null ? s.task.key() : null);
         return ResponseEntity.ok(resp);
     }
 
@@ -265,15 +267,16 @@ public class EstimateController {
         if (prev != null) {
             try { prev.complete(); } catch (Exception ignored) {}
         }
+        log.info("SSE subscribed: boardId={}, userId={}, totalSubscribers={}", id, userId, map.size());
         Runnable remove = () -> {
             SseEmitter current = map.get(userId);
             if (current == emitter) {
                 map.remove(userId);
             }
         };
-        emitter.onCompletion(remove);
-        emitter.onTimeout(remove);
-        emitter.onError(t -> remove.run());
+        emitter.onCompletion(() -> { remove.run(); log.info("SSE completed: boardId={}, userId={}", id, userId); });
+        emitter.onTimeout(() -> { remove.run(); log.info("SSE timeout: boardId={}, userId={}", id, userId); });
+        emitter.onError(t -> { remove.run(); log.warn("SSE error: boardId={}, userId={}, error={}", id, userId, t.getMessage()); });
         try {
             emitter.send(SseEmitter.event().name("CONNECTED").data(Map.of("time", Instant.now().toString())));
         } catch (IOException | IllegalStateException ex) {
@@ -293,6 +296,7 @@ public class EstimateController {
         RoundState s = stateForBoard(id);
         s.lastSeen.put(user.getId(), Instant.now());
         // Emit event
+        log.info("User joined: boardId={}, userId={}", id, user.getId());
         emit(id, "USER_JOINED", Map.of("userId", user.getId(), "name", user.getEmail()));
         return ResponseEntity.ok(Map.of("ok", true));
     }
@@ -310,12 +314,14 @@ public class EstimateController {
         // Idempotent by userId
         s.votes.put(user.getId(), dto.value());
         s.lastSeen.put(user.getId(), Instant.now());
+        log.info("Vote cast: boardId={}, userId={}", id, user.getId());
         emit(id, "VOTE_CAST", Map.of("userId", user.getId(), "masked", true));
         // auto-reveal if enabled and all online participants voted
         if (s.autoReveal) {
             boolean allVoted = participants(b.get(), s).stream().filter(p -> p.online).allMatch(p -> s.votes.containsKey(p.userId));
             if (allVoted && !s.votes.isEmpty()) {
                 doReveal(b.get(), s);
+                log.info("Auto reveal triggered: boardId={}, votes={} ", id, s.votes.size());
                 emit(id, "REVEALED", buildRevealPayload(b.get(), s));
             }
         }
@@ -333,6 +339,7 @@ public class EstimateController {
         RoundState s = stateForBoard(id);
         if (s.status == RoundStatus.revealed) return ResponseEntity.status(HttpStatus.CONFLICT).body(error("ALREADY_REVEALED","Already revealed"));
         doReveal(b.get(), s);
+        log.info("Revealed manually: boardId={}, byUserId={}, votes={}", id, user.getId(), s.votes.size());
         emit(id, "REVEALED", buildRevealPayload(b.get(), s));
         return ResponseEntity.ok(Map.of("ok", true));
     }
@@ -375,6 +382,7 @@ public class EstimateController {
         s.status = RoundStatus.voting;
         s.summary = null;
         s.startedAt = Instant.now();
+        log.info("Round reset: boardId={}, byUserId={}, historySize={}", id, user.getId(), HISTORY.getOrDefault(id, List.of()).size());
         emit(id, "RESET", Map.of("status","voting"));
         return ResponseEntity.ok(Map.of("ok", true));
     }
@@ -394,6 +402,7 @@ public class EstimateController {
         s.status = RoundStatus.voting;
         s.summary = null;
         s.startedAt = Instant.now();
+        log.info("Round started: boardId={}, byUserId={}, taskKey={}", id, user.getId(), s.task != null ? s.task.key() : null);
         emit(id, "ROUND_STARTED", Map.of("task", s.task));
         return ResponseEntity.ok(Map.of("ok", true));
     }
@@ -408,6 +417,7 @@ public class EstimateController {
         if (items.size() > limit) {
             items = new ArrayList<>(items.subList(0, limit));
         }
+        log.debug("History fetched: boardId={}, returned={}, total={} ", id, items.size(), HISTORY.getOrDefault(id, List.of()).size());
         return ResponseEntity.ok(items);
     }
 }

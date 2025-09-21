@@ -1,4 +1,4 @@
-package com.zherikhov.easyplanningpoker.api.boards;
+package com.zherikhov.easyplanningpoker.application.board;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

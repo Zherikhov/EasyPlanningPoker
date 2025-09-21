@@ -1,4 +1,4 @@
-package com.zherikhov.easyplanningpoker.api.boards;
+package com.zherikhov.easyplanningpoker.application.board;
 
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.Board;
 

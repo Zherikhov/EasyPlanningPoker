@@ -1,6 +1,6 @@
 package com.zherikhov.easyplanningpoker.application.registration;
 
-import com.zherikhov.easyplanningpoker.application.UserResponse;
+import com.zherikhov.easyplanningpoker.application.users.UserResponse;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserProfile;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserProfilesService;

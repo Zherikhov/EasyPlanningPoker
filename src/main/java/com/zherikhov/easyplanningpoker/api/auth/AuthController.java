@@ -4,8 +4,9 @@ import com.zherikhov.easyplanningpoker.application.auth.AuthRequest;
 import com.zherikhov.easyplanningpoker.application.auth.AuthService;
 import com.zherikhov.easyplanningpoker.application.registration.RegisterRequest;
 import com.zherikhov.easyplanningpoker.application.registration.RegistrationService;
-import com.zherikhov.easyplanningpoker.application.UserResponse;
+import com.zherikhov.easyplanningpoker.application.users.UserResponse;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +18,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
+@Slf4j
 public class AuthController {
 
     private final RegistrationService registrationService;
@@ -29,11 +31,13 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
-        System.out.println(request.toString());
+
+        log.info("Registering user: {}", request.email());
         try {
             UserResponse response = registrationService.register(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException ex) {
+            log.error("Registration failed: {}", ex.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of(
                             "error", "EMAIL_TAKEN",
@@ -44,13 +48,19 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest request) {
-        System.out.println(request.toString());
         return authService.login(request)
-                .<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of(
-                                "error", "INVALID_CREDENTIALS",
-                                "message", "Неверный email или пароль"
-                        )));
+                .<ResponseEntity<?>>map(response -> {
+                    log.info("Login successful: {}" , request.email());
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> {
+                    log.warn("Login failed: invalid credentials: {}", request.email());
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body(Map.of(
+                                    "error", "INVALID_CREDENTIALS",
+                                    "message", "Неверный email или пароль"
+                            ));
+                });
+
     }
 }

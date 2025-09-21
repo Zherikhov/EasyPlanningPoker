@@ -1,7 +1,7 @@
 package com.zherikhov.easyplanningpoker.application.auth;
 
 
-import com.zherikhov.easyplanningpoker.application.UserResponse;
+import com.zherikhov.easyplanningpoker.application.users.UserResponse;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.dao.UserJpaRepository;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
 import com.zherikhov.easyplanningpoker.infrastructure.security.JwtProvider;

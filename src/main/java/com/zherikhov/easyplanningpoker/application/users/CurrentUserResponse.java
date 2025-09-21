@@ -1,4 +1,4 @@
-package com.zherikhov.easyplanningpoker.api.users;
+package com.zherikhov.easyplanningpoker.application.users;
 
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserProfile;

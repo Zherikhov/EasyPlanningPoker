@@ -1,11 +1,13 @@
 package com.zherikhov.easyplanningpoker.api.users;
 
+import com.zherikhov.easyplanningpoker.application.users.CurrentUserResponse;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserProfile;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserProfilesService;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserService;
 import com.zherikhov.easyplanningpoker.infrastructure.security.JwtProvider;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +19,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/users")
+@Slf4j
 public class UsersController {
 
     private final JwtProvider jwtProvider;
@@ -33,6 +36,7 @@ public class UsersController {
     public ResponseEntity<?> me(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.warn("/api/users/me unauthorized: missing Authorization header");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing Authorization header"));
         }
         String token = authHeader.substring(7);
@@ -40,11 +44,13 @@ public class UsersController {
         try {
             userId = UUID.fromString(jwtProvider.getSubject(token));
         } catch (Exception e) {
+            log.warn("/api/users/me unauthorized: invalid token: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Invalid token"));
         }
 
         Optional<User> userOpt = userService.findById(userId);
         if (userOpt.isEmpty()) {
+            log.warn("/api/users/me unauthorized: user not found: {}", userId);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "User not found"));
         }
         User user = userOpt.get();
@@ -52,6 +58,7 @@ public class UsersController {
         UserProfile profile = profileOpt.orElse(null);
 
         CurrentUserResponse dto = CurrentUserResponse.from(user, profile);
+        log.info("/api/users/me success: userId={}", user.getId());
         return ResponseEntity.ok(dto);
     }
 
