@@ -18,7 +18,7 @@ public class JwtProvider {
 
     public JwtProvider(
             @Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.expiration-ms:3600000}") long expirationMillis
+            @Value("${app.jwt.expiration-ms}") long expirationMillis
     ) {
         // HS256 requires at least 256-bit (32-byte) key length
         if (secret == null || secret.trim().length() < 32) {

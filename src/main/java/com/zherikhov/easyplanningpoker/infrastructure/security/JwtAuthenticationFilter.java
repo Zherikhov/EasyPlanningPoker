@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -28,7 +29,6 @@ import java.util.UUID;
  */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     public static final String ACCESS_COOKIE = "ACCESS_TOKEN";
 
@@ -43,23 +43,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+
         try {
             String token = resolveToken(request);
             if (StringUtils.hasText(token)) {
                 String subject = jwtProvider.getSubject(token);
-                // subject is UUID of user
-                String username = subject; // We can use UUID as username; UserDetailsService must support it
+                String username = subject;
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                 Authentication auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 ((UsernamePasswordAuthenticationToken) auth).setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
         } catch (Exception e) {
-            // log but do not break the chain; controllers will see anonymous and Security will handle 401
-            log.warn("JWT auth failed: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+            e.printStackTrace();
         }
         filterChain.doFilter(request, response);
     }
+
 
     private String resolveToken(HttpServletRequest request) {
         // 1) Cookie

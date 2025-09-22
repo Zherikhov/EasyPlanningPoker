@@ -10,10 +10,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,24 +37,38 @@ public class UsersController {
 
     @GetMapping("/me")
     public ResponseEntity<?> me(HttpServletRequest request) {
+        Optional<User> fromContext = resolveCurrentUserFromSecurityContext();
+        if (fromContext.isPresent()) {
+            User user = fromContext.get();
+
+            Optional<UserProfile> profileOpt = userProfilesService.findByUserId(user.getId());
+            UserProfile profile = profileOpt.orElse(null);
+
+            CurrentUserResponse dto = CurrentUserResponse.from(user, profile);
+            log.info("/api/users/me success (context): userId={}", user.getId());
+            return ResponseEntity.ok(dto);
+        }
+
+        // Fallback to Authorization header for legacy clients
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("/api/users/me unauthorized: missing Authorization header");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing Authorization header"));
+            log.warn("/api/users/me unauthorized: missing Authorization header and empty context");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("Missing Authorization header"));
         }
+
         String token = authHeader.substring(7);
         final UUID userId;
         try {
             userId = UUID.fromString(jwtProvider.getSubject(token));
         } catch (Exception e) {
             log.warn("/api/users/me unauthorized: invalid token: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Invalid token"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("Invalid token"));
         }
 
         Optional<User> userOpt = userService.findById(userId);
         if (userOpt.isEmpty()) {
             log.warn("/api/users/me unauthorized: user not found: {}", userId);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "User not found"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("User not found"));
         }
         User user = userOpt.get();
         Optional<UserProfile> profileOpt = userProfilesService.findByUserId(user.getId());
@@ -62,7 +79,28 @@ public class UsersController {
         return ResponseEntity.ok(dto);
     }
 
-    private static java.util.Map<String, String> error(String code, String message) {
-        return java.util.Map.of("error", code, "message", message);
+    private Optional<User> resolveCurrentUserFromSecurityContext() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return Optional.empty();
+
+        Object principal = auth.getPrincipal();
+        try {
+            String idStr;
+            if (principal instanceof org.springframework.security.core.userdetails.User u) {
+                idStr = u.getUsername();
+            } else if (principal instanceof String s) {
+                idStr = s;
+            } else {
+                return Optional.empty();
+            }
+            UUID userId = UUID.fromString(idStr);
+            return userService.findById(userId);
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    private static Map<String, String> error(String message) {
+        return Map.of("error", "UNAUTHORIZED", "message", message);
     }
 }

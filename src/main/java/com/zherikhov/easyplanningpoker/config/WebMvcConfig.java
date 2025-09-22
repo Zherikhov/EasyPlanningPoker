@@ -27,7 +27,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .maxAge(3600);
     }
 
-    // Forward SPA routes to index.html, but do NOT grab static assets or API
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
 
@@ -38,7 +37,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addViewController("/boards/**").setViewName("forward:/index.html");
         registry.addViewController("/login").setViewName("forward:/index.html");
         registry.addViewController("/register").setViewName("forward:/index.html");
+        // ... existing code ...
+        // Добавляем SPA-маршрут /estimate
+        registry.addViewController("/estimate").setViewName("forward:/index.html");
+        registry.addViewController("/estimate/**").setViewName("forward:/index.html");
     }
+
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {

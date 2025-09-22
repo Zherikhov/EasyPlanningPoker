@@ -11,6 +11,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -28,52 +29,39 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Stateless REST API
+                // ограничиваем действие цепочки безопасности ТОЛЬКО на /api/**
+                .securityMatcher("/api/**")
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // Для REST обычно CSRF выключают
-                .csrf(AbstractHttpConfigurer::disable)
-                // Настройка CORS
-                .cors(Customizer.withDefaults())
-                // Правила доступа
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> {})
+
                 .authorizeHttpRequests(auth -> auth
-                        // Public auth endpoints
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        // CORS preflight
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // Public read-only endpoints if any
-                        .requestMatchers(HttpMethod.GET, "/api/users/me").permitAll()
-                        .requestMatchers("/api/boards/**").authenticated()
-                        // Static and SPA entry must be public
-                        .requestMatchers(HttpMethod.GET,
-                                "/",
-                                "/index.html",
-                                "/favicon.ico",
-                                "/static/**",
-                                "/assets/**",
-                                "/login",
-                                "/register",
-                                "/*.js",
-                                "/*.css",
-                                "/*.ico",
-                                "/*.png",
-                                "/*.svg"
-                        ).permitAll()
-                        // Keep explicit boards SPA route if needed by frontend
-                        .requestMatchers(HttpMethod.GET, "/boards").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/boards/**").permitAll()
-                        // health
-                        .requestMatchers("/actuator/health").permitAll()
-                        // Everything else requires auth
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/api/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
                         .anyRequest().authenticated()
-                );
-        // Add JWT auth filter
-        http.addFilterBefore(jwtAuthenticationFilter,
-                org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
+                )
+
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\":\"UNAUTHORIZED\",\"message\":\"Требуется аутентификация\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(403);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\":\"FORBIDDEN\",\"message\":\"Доступ запрещён\"}");
+                        })
+                )
+
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
+
+
 
     // Глобальная CORS-конфигурация для разработки
     @Bean
