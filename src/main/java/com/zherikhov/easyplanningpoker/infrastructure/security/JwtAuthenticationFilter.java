@@ -1,15 +1,12 @@
 package com.zherikhov.easyplanningpoker.infrastructure.security;
 
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -21,13 +18,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * JWT auth filter: picks access token from HttpOnly cookie (ACCESS_TOKEN) or Authorization: Bearer ...
  * Validates via JwtProvider and sets SecurityContext.
  */
 @Component
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     public static final String ACCESS_COOKIE = "ACCESS_TOKEN";
@@ -41,34 +38,43 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
+            throws IOException {
 
         try {
             String token = resolveToken(request);
             if (StringUtils.hasText(token)) {
-                String subject = jwtProvider.getSubject(token);
-                String username = subject;
+                String username = jwtProvider.getSubject(token);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                Authentication auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                ((UsernamePasswordAuthenticationToken) auth).setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
+            filterChain.doFilter(request, response);
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            SecurityContextHolder.clearContext();
+            log.warn("JWT expired: {}", e.getMessage());
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+        } catch (io.jsonwebtoken.JwtException e) {
+            SecurityContextHolder.clearContext();
+            log.warn("Invalid JWT: {}", e.getMessage());
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
         } catch (Exception e) {
-            e.printStackTrace();
+            SecurityContextHolder.clearContext();
+            log.error("Authentication filter error: {}", e.getMessage());
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
         }
-        filterChain.doFilter(request, response);
     }
 
 
     private String resolveToken(HttpServletRequest request) {
         // 1) Cookie
         if (request.getCookies() != null) {
-            Optional<Cookie> c = Arrays.stream(request.getCookies())
+            Optional<Cookie> optionalCookie = Arrays.stream(request.getCookies())
                     .filter(it -> ACCESS_COOKIE.equals(it.getName()))
                     .findFirst();
-            if (c.isPresent() && StringUtils.hasText(c.get().getValue())) {
-                return c.get().getValue();
+            if (optionalCookie.isPresent() && StringUtils.hasText(optionalCookie.get().getValue())) {
+                return optionalCookie.get().getValue();
             }
         }
         // 2) Authorization header
@@ -77,8 +83,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return authHeader.substring(7);
         }
         // 3) Query param for SSE fallback
-        String q = request.getParameter("access_token");
-        if (StringUtils.hasText(q)) return q;
+        String accessToken = request.getParameter("access_token");
+        if (StringUtils.hasText(accessToken)) return accessToken;
         return null;
     }
 }

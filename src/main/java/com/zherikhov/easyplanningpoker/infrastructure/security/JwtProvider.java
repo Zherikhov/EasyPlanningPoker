@@ -46,6 +46,7 @@ public class JwtProvider {
     public String getSubject(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
+                .setAllowedClockSkewSeconds(60)
                 .build()
                 .parseClaimsJws(token)
                 .getBody()
