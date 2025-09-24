@@ -5,21 +5,35 @@
     "npm":   { "directory": "/root/.npm",           "type": "shared" },
     "maven": { "directory": "/root/.m2/repository", "type": "shared" }
   },
-  "steps": {
-    "build": {
+  "steps": [
+    {
+      "name": "install",
       "commands": [
-        "COPY:./ ./",
-        "bash -lc 'cd frontend && npm ci --include=dev && npm run build'",
+        "/mise/shims/npm ci --prefix frontend --include=dev"
+      ],
+      "caches": ["npm"]
+    },
+    {
+      "name": "build-frontend",
+      "inputs": [ { "step": "install" } ],
+      "commands": [
+        "/mise/shims/npm run build --prefix frontend",
         "rm -rf src/main/resources/static/* || true",
         "mkdir -p src/main/resources/static",
-        "cp -r frontend/dist/* src/main/resources/static/",
-        "bash -lc \"/mise/shims/mvn -DskipTests clean package\""
+        "cp -r frontend/dist/* src/main/resources/static/"
+      ]
+    },
+    {
+      "name": "build-backend",
+      "inputs": [ { "step": "build-frontend" } ],
+      "commands": [
+        "/mise/shims/mvn -DskipTests clean package"
       ],
-      "caches": ["npm", "maven"]
+      "caches": ["maven"]
     }
-  },
+  ],
   "deploy": {
-    "inputs": ["build"],
+    "inputs": [ { "step": "build-backend" } ],
     "startCommand": "/mise/shims/java -Dserver.port=$PORT -jar target/*jar"
   }
 }
