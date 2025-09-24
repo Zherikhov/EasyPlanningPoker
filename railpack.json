@@ -1,36 +1,59 @@
 {
   "$schema": "https://schema.railpack.com",
-  "packages": { "node": "24", "java": "21", "maven": "3.9.11" },
+  "provider": "java",
+  "packages": {
+    "node": "24",
+    "java": "21",
+    "maven": "3.9.11"
+  },
   "caches": {
-    "npm":   { "directory": "/root/.npm",           "type": "shared" },
-    "maven": { "directory": "/root/.m2/repository", "type": "shared" }
+    "npm-cache": {
+      "directory": "/root/.npm",
+      "type": "shared"
+    },
+    "maven-cache": {
+      "directory": "/root/.m2",
+      "type": "shared"
+    }
   },
   "steps": {
-    "install": {
+    "frontend-install": {
       "commands": [
-        "/mise/shims/npm ci --prefix frontend --include=dev"
+        "cd frontend && npm install"
       ],
-      "caches": ["npm"]
+      "caches": ["npm-cache"]
     },
-    "build-frontend": {
-      "inputs": { "install": {} },
+    "frontend-build": {
+      "inputs": [
+        { "step": "frontend-install" }
+      ],
       "commands": [
-        "/mise/shims/npm run build --prefix frontend",
-        "rm -rf src/main/resources/static/* || true",
-        "mkdir -p src/main/resources/static",
-        "cp -r frontend/dist/* src/main/resources/static/"
+        "cd frontend && npm run build"
       ]
     },
-    "build-backend": {
-      "inputs": { "build-frontend": {} },
-      "commands": [
-        "/mise/shims/mvn -DskipTests clean package"
+    "copy-frontend-assets": {
+      "inputs": [
+        { "step": "frontend-build" }
       ],
-      "caches": ["maven"]
+      "commands": [
+
+        { "src": "frontend/dist", "dest": "src/main/resources/static" }
+      ]
+    },
+    "backend-build": {
+      "inputs": [
+        { "step": "copy-frontend-assets" }
+      ],
+      "commands": [
+        "mvn clean package -DskipTests"
+      ],
+      "caches": ["maven-cache"],
+      "deployOutputs": [
+        "target/*.jar"
+      ]
     }
   },
   "deploy": {
-    "inputs": { "build-backend": {} },
-    "startCommand": "/mise/shims/java -Dserver.port=$PORT -jar target/*jar"
+    "startCommand": "java -jar target/*.jar"
   }
 }
