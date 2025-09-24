@@ -13,7 +13,7 @@
       "caches": ["npm"]
     },
     "build-frontend": {
-      "inputs": ["install"],
+      "inputs": { "install": {} },
       "commands": [
         "/mise/shims/npm run build --prefix frontend",
         "rm -rf src/main/resources/static/* || true",
@@ -22,7 +22,7 @@
       ]
     },
     "build-backend": {
-      "inputs": ["build-frontend"],
+      "inputs": { "build-frontend": {} },
       "commands": [
         "/mise/shims/mvn -DskipTests clean package"
       ],
@@ -30,7 +30,7 @@
     }
   },
   "deploy": {
-    "inputs": ["build-backend"],
+    "inputs": { "build-backend": {} },
     "startCommand": "/mise/shims/java -Dserver.port=$PORT -jar target/*jar"
   }
 }
