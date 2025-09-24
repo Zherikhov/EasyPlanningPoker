@@ -9,7 +9,7 @@
 
   "steps": {
     "install": {
-      "inputs": [ { "include": [ "." ] } ],
+      "inputs": [ { "include": ["./**"] } ],
       "commands": [
         "PATH:/mise/shims",
         "cd frontend && npm ci --include=dev",
@@ -19,7 +19,7 @@
     },
 
     "build-frontend": {
-      "inputs": [ "install" ],
+      "inputs": [ { "step": "install" } ],
       "commands": [
         "cd frontend && npm run build",
         "rm -rf src/main/resources/static/* || true",
@@ -29,17 +29,17 @@
     },
 
     "build-backend": {
-      "inputs": [ "build-frontend" ],
-      "commands": [ "PATH:/mise/shims", "mvn -DskipTests clean package" ],
-      "caches": ["maven"],
-      "deployOutputs": [
-        { "include": ["target/*.jar", "src/main/resources/static/**"] }
-      ]
+      "inputs": [ { "step": "build-frontend" } ],
+      "commands": [
+        "PATH:/mise/shims",
+        "mvn -DskipTests clean package"
+      ],
+      "caches": ["maven"]
     }
   },
 
   "deploy": {
-    "inputs": [ "build-backend" ],
-    "startCommand": "PATH:/mise/shims && java -Dserver.port=$PORT -jar target/*jar"
+    "inputs": [ { "step": "build-backend" } ],
+    "startCommand": "java -Dserver.port=$PORT -jar target/*jar"
   }
 }
