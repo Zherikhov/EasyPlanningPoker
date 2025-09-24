@@ -7,9 +7,7 @@
   },
   "steps": {
     "install": {
-      "inputs": [
-        { "include": ["./**"], "exclude": ["./target/**", "./.git/**"] }
-      ],
+      "inputs": ["."],
       "commands": [
         "PATH:/mise/shims",
         "cd frontend && npm ci --include=dev"
@@ -17,8 +15,9 @@
       "caches": ["npm"]
     },
     "build-frontend": {
-      "inputs": [ { "step": "install" } ],
+      "inputs": ["install"],
       "commands": [
+        "PATH:frontend/node_modules/.bin",
         "cd frontend && npm run build",
         "rm -rf src/main/resources/static/* || true",
         "mkdir -p src/main/resources/static",
@@ -26,7 +25,7 @@
       ]
     },
     "build-backend": {
-      "inputs": [ { "step": "build-frontend" } ],
+      "inputs": ["build-frontend"],
       "commands": [
         "PATH:/mise/shims",
         "mvn -DskipTests clean package"
@@ -35,7 +34,7 @@
     }
   },
   "deploy": {
-    "inputs": [ { "step": "build-backend" } ],
+    "inputs": ["build-backend"],
     "startCommand": "java -Dserver.port=$PORT -jar target/*jar"
   }
 }
