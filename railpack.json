@@ -1,48 +1,49 @@
 {
   "$schema": "https://schema.railpack.com",
   "packages": { "node": "24", "java": "21", "maven": "3.9.11" },
+
   "caches": {
     "npm":   { "directory": "/root/.npm",           "type": "shared" },
     "maven": { "directory": "/root/.m2/repository", "type": "shared" }
   },
-  "steps": [
-    {
-      "name": "install",
+
+  "steps": {
+    "install-frontend": {
       "inputs": [
-        { "image": "packages", "include": ["."] }
+        { "step": "packages:mise" },
+        { "local": true }
       ],
       "commands": [
-        "cd frontend && /mise/shims/npm ci --include=dev"
+        "cd frontend && npm ci --include=dev",
+        "PATH:frontend/node_modules/.bin"
       ],
       "caches": ["npm"]
     },
-    {
-      "name": "build-frontend",
-      "inputs": [
-        { "step": "install" }
-      ],
+
+    "build-frontend": {
+      "inputs": [ { "step": "install-frontend" } ],
       "commands": [
-        "cd frontend && /mise/shims/npm run build",
+        "cd frontend && npm run build",
         "rm -rf src/main/resources/static/* || true",
         "mkdir -p src/main/resources/static",
         "cp -r frontend/dist/* src/main/resources/static/"
       ]
     },
-    {
-      "name": "build-backend",
-      "inputs": [
-        { "step": "build-frontend" }
-      ],
+
+    "build-backend": {
+      "inputs": [ { "step": "build-frontend" } ],
       "commands": [
-        "/mise/shims/mvn -DskipTests clean package"
+        "mvn -DskipTests clean package"
       ],
       "caches": ["maven"]
     }
-  ],
+  },
+
   "deploy": {
     "inputs": [
+      { "step": "packages:mise" },
       { "step": "build-backend" }
     ],
-    "startCommand": "/mise/shims/java -Dserver.port=$PORT -jar target/*jar"
+    "startCommand": "java -Dserver.port=$PORT -jar target/*jar"
   }
 }
