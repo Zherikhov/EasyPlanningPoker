@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiUrl } from '../lib/apiBase'
+import { getSavedTheme, saveTheme, applyTheme } from '../lib/theme.js'
 
 export default function BoardDetails() {
   const { id } = useParams()
   const [board, setBoard] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [theme, setTheme] = useState('light')
   const navigate = useNavigate()
 
   const logout = () => {
     try {
+      // Persist current theme for auth pages before clearing user context
+      const isDark = typeof document !== 'undefined' && document.documentElement?.classList?.contains('dark')
+      localStorage.setItem('signinTheme', isDark ? 'dark' : 'light')
       localStorage.removeItem('accessToken')
       localStorage.removeItem('expiresIn')
       localStorage.removeItem('currentUser')
@@ -19,6 +24,12 @@ export default function BoardDetails() {
   }
 
   useEffect(() => {
+    try {
+      const saved = getSavedTheme()
+      setTheme(saved)
+      applyTheme(saved)
+    } catch {}
+
     const token = localStorage.getItem('accessToken')
     if (!token) {
       navigate('/login')
@@ -54,22 +65,36 @@ export default function BoardDetails() {
   }, [id])
 
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between px-6 py-4 border-b">
+    <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+      <header className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
         <button onClick={() => navigate('/boards')} className="text-sm text-blue-600 hover:underline">← К списку досок</button>
-        <button onClick={logout} className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">Выйти</button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const next = theme === 'light' ? 'dark' : 'light'
+              setTheme(next)
+              saveTheme(next)
+              applyTheme(next)
+            }}
+            className="text-xs border px-2 py-1 rounded dark:border-gray-600"
+            title={theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
+          >
+            {theme === 'light' ? 'Dark' : 'Light'}
+          </button>
+          <button onClick={logout} className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-100">Выйти</button>
+        </div>
       </header>
 
       <main className="p-6 max-w-3xl mx-auto">
         {loading && <div>Загрузка...</div>}
-        {error && <div className="text-red-700 bg-red-50 border border-red-200 rounded p-2 inline-block">{error}</div>}
+        {error && <div className="text-red-700 bg-red-50 border border-red-200 rounded p-2 inline-block dark:bg-red-950/30 dark:text-red-300 dark:border-red-800">{error}</div>}
         {!loading && !error && board && (
           <div>
             <h1 className="text-2xl font-semibold mb-4">{board.name}</h1>
             <div className="space-y-2">
-              <div><span className="text-gray-500">Описание:</span> {board.description || '—'}</div>
-              <div><span className="text-gray-500">Создана:</span> {new Date(board.createdAt).toLocaleString()}</div>
-              <div><span className="text-gray-500">ID:</span> {board.id}</div>
+              <div><span className="text-gray-500 dark:text-gray-400">Описание:</span> {board.description || '—'}</div>
+              <div><span className="text-gray-500 dark:text-gray-400">Создана:</span> {new Date(board.createdAt).toLocaleString()}</div>
+              <div><span className="text-gray-500 dark:text-gray-400">ID:</span> {board.id}</div>
             </div>
             <div className="mt-4">
               <button onClick={() => navigate(`/boards/${board.id}/estimate`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Перейти к оценке</button>

@@ -15,6 +15,9 @@ export default function Estimate() {
 
   const logout = () => {
     try {
+      // Persist current theme for auth pages before clearing user context
+      const isDark = typeof document !== 'undefined' && document.documentElement?.classList?.contains('dark')
+      localStorage.setItem('signinTheme', isDark ? 'dark' : 'light')
       localStorage.removeItem('accessToken')
       localStorage.removeItem('expiresIn')
       localStorage.removeItem('currentUser')
@@ -108,8 +111,8 @@ export default function Estimate() {
   const summary = state.summary
 
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between px-6 py-4 border-b">
+    <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+      <header className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(`/boards/${id}`)} className="text-sm text-blue-600 hover:underline">← К доске</button>
           <h1 className="text-xl font-semibold">Оценка</h1>
@@ -125,28 +128,28 @@ export default function Estimate() {
       </header>
 
       <main className="p-6 max-w-5xl mx-auto">
-        {error && <div className="mb-4 text-red-700 bg-red-50 border border-red-200 rounded p-2 inline-block">{error}</div>}
+        {error && <div className="mb-4 text-red-700 bg-red-50 border border-red-200 rounded p-2 inline-block dark:bg-red-950/30 dark:text-red-300 dark:border-red-800">{error}</div>}
 
         {/* Task block */}
-        <div className="border rounded p-4 mb-4">
-          <div className="text-sm text-gray-500">Задача</div>
+        <div className="border rounded p-4 mb-4 dark:border-gray-700">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Задача</div>
           {state.task ? (
             <div>
-              <div className="font-medium">{state.task.title} {state.task.key && <span className="text-gray-500 text-sm">({state.task.key})</span>}</div>
+              <div className="font-medium">{state.task.title} {state.task.key && <span className="text-gray-500 dark:text-gray-400 text-sm">({state.task.key})</span>}</div>
               {state.task.link && <a href={state.task.link} target="_blank" rel="noreferrer" className="text-blue-600 text-sm">Ссылка</a>}
-              {state.task.description && <div className="text-sm text-gray-600 mt-1">{state.task.description}</div>}
+              {state.task.description && <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{state.task.description}</div>}
             </div>
           ) : (
-            <div className="text-gray-500">Задача не задана. Фасилитатор может начать новый раунд.</div>
+            <div className="text-gray-500 dark:text-gray-400">Задача не задана. Фасилитатор может начать новый раунд.</div>
           )}
         </div>
 
         {/* Cards */}
         <div className="mb-6">
-          <div className="mb-2 text-sm text-gray-500">Выберите карточку</div>
+          <div className="mb-2 text-sm text-gray-500 dark:text-gray-400">Выберите карточку</div>
           <div className="flex flex-wrap gap-2">
             {state.allowedValues.map(v => (
-              <button key={v} disabled={state.status !== 'voting'} onClick={() => castVote(v)} className={`w-12 h-16 border rounded flex items-center justify-center text-lg ${selected===v? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'}`}>
+              <button key={v} disabled={state.status !== 'voting'} onClick={() => castVote(v)} className={`w-12 h-16 border rounded flex items-center justify-center text-lg dark:border-gray-700 ${selected===v? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700'}`}>
                 {v}
               </button>
             ))}
@@ -155,15 +158,15 @@ export default function Estimate() {
 
         {/* Participants */}
         <div className="mb-6">
-          <div className="mb-2 text-sm text-gray-500">Участники</div>
+          <div className="mb-2 text-sm text-gray-500 dark:text-gray-400">Участники</div>
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {state.participants.map(p => (
-              <li key={p.userId} className="border rounded p-3 flex items-center justify-between">
+              <li key={p.userId} className="border rounded p-3 flex items-center justify-between dark:border-gray-700">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm">{p.initials || '?'}</div>
+                  <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm">{p.initials || '?'}</div>
                   <div>
                     <div className="font-medium">{p.name}</div>
-                    <div className={`text-xs ${p.status==='voted'?'text-green-600': p.status==='waiting'?'text-gray-500':'text-orange-500'}`}>{p.status==='voted'?'проголосовал': p.status==='waiting'?'ожидает':'оффлайн'}</div>
+                    <div className={`text-xs ${p.status==='voted'?'text-green-600': p.status==='waiting'?'text-gray-500 dark:text-gray-400':'text-orange-500'}`}>{p.status==='voted'?'проголосовал': p.status==='waiting'?'ожидает':'оффлайн'}</div>
                   </div>
                 </div>
                 <div className="text-lg min-w-8 text-center">
@@ -175,27 +178,27 @@ export default function Estimate() {
         </div>
 
         {/* Status bar */}
-        <div className="sticky bottom-4 bg-white/90 backdrop-blur border rounded p-3 flex items-center justify-between">
-          <div className="text-sm text-gray-600">Статус раунда: {state.status === 'voting' ? 'Голосование' : 'Раскрыто'}</div>
+        <div className="sticky bottom-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur border dark:border-gray-700 rounded p-3 flex items-center justify-between">
+          <div className="text-sm text-gray-600 dark:text-gray-300">Статус раунда: {state.status === 'voting' ? 'Голосование' : 'Раскрыто'}</div>
           <div className="text-sm">Ваш выбор: <span className="font-medium">{selected || '—'}</span></div>
         </div>
 
         {/* Results after reveal */}
         {state.status === 'revealed' && (
           <div className="mt-6">
-            <div className="text-sm text-gray-500 mb-2">Сводка</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Сводка</div>
             {summary ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="border rounded p-3"><div className="text-xs text-gray-500">MIN</div><div className="text-xl">{summary.min}</div></div>
-                <div className="border rounded p-3"><div className="text-xs text-gray-500">MAX</div><div className="text-xl">{summary.max}</div></div>
-                <div className="border rounded p-3"><div className="text-xs text-gray-500">MEDIAN</div><div className="text-xl">{summary.median}</div></div>
-                <div className="border rounded p-3"><div className="text-xs text-gray-500">MODE</div><div className="text-xl">{summary.mode}</div></div>
+                <div className="border rounded p-3 dark:border-gray-700"><div className="text-xs text-gray-500 dark:text-gray-400">MIN</div><div className="text-xl">{summary.min}</div></div>
+                <div className="border rounded p-3 dark:border-gray-700"><div className="text-xs text-gray-500 dark:text-gray-400">MAX</div><div className="text-xl">{summary.max}</div></div>
+                <div className="border rounded p-3 dark:border-gray-700"><div className="text-xs text-gray-500 dark:text-gray-400">MEDIAN</div><div className="text-xl">{summary.median}</div></div>
+                <div className="border rounded p-3 dark:border-gray-700"><div className="text-xs text-gray-500 dark:text-gray-400">MODE</div><div className="text-xl">{summary.mode}</div></div>
               </div>
             ) : (
-              <div className="text-gray-500">Нет данных</div>
+              <div className="text-gray-500 dark:text-gray-400">Нет данных</div>
             )}
             {summary?.consensus && (
-              <div className="mt-3 p-3 rounded bg-green-50 text-green-700 border border-green-200">Консенсус достигнут</div>
+              <div className="mt-3 p-3 rounded bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800">Консенсус достигнут</div>
             )}
           </div>
         )}

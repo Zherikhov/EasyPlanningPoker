@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign In — Dark</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Sign In</h1>
+      <form>
+        <div class="field">
+          <div class="label">Email Address</div>
+          <input type="email" class="input" placeholder="name@company.com" required>
+        </div>
+        <div class="field">
+          <div class="label">Password</div>
+          <input id="pwdD" type="password" class="input" placeholder="••••••••" required>
+          <button class="showbtn" type="button" onclick="togglePwd('pwdD', this)">Show</button>
+        </div>
+        <button class="primary" type="submit">Sign In</button>
+        <div class="meta">
+          <a href="#">Forgot password?</a>
+          <div>No account? <a href="#">Sign up</a></div>
+        </div>
+        <div class="sep">or</div>
+        <button class="google" type="button">
+          <img alt="G" src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png">
+          Sign in with Google
+        </button>
+      </form>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

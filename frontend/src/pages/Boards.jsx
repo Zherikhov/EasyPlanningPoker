@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiUrl } from '../lib/apiBase'
+import { getSavedTheme, saveTheme, applyTheme } from '../lib/theme.js'
 
 export default function Boards() {
   const [boards, setBoards] = useState([])
@@ -9,12 +10,16 @@ export default function Boards() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [form, setForm] = useState({ name: '', description: '' })
   const [creating, setCreating] = useState(false)
+  const [theme, setTheme] = useState('light')
   const navigate = useNavigate()
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
 
   const logout = () => {
     try {
+      // Persist current theme for auth pages before clearing user context
+      const isDark = typeof document !== 'undefined' && document.documentElement?.classList?.contains('dark')
+      localStorage.setItem('signinTheme', isDark ? 'dark' : 'light')
       localStorage.removeItem('accessToken')
       localStorage.removeItem('expiresIn')
       localStorage.removeItem('currentUser')
@@ -64,6 +69,13 @@ export default function Boards() {
   }
 
   useEffect(() => {
+    // apply saved theme
+    try {
+      const saved = getSavedTheme()
+      setTheme(saved)
+      applyTheme(saved)
+    } catch {}
+
     if (!token) {
       navigate('/login')
       return
@@ -106,53 +118,65 @@ export default function Boards() {
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between px-6 py-4 border-b">
+    <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+      <header className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
         <h1 className="text-xl font-semibold">Доски</h1>
-        <div className="space-x-2">
+        <div className="space-x-2 flex items-center">
+          <button
+            onClick={() => {
+              const next = theme === 'light' ? 'dark' : 'light'
+              setTheme(next)
+              saveTheme(next)
+              applyTheme(next)
+            }}
+            className="text-xs border px-2 py-1 rounded dark:border-gray-600"
+            title={theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
+          >
+            {theme === 'light' ? 'Dark' : 'Light'}
+          </button>
           <button onClick={() => setIsModalOpen(true)} className="text-sm bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded">Создать новую доску</button>
-          <button onClick={logout} className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">Выйти</button>
+          <button onClick={logout} className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-100">Выйти</button>
         </div>
       </header>
 
       <main className="p-6 max-w-4xl mx-auto">
         {loading && <div>Загрузка...</div>}
-        {error && <div className="mb-4 text-red-700 bg-red-50 border border-red-200 rounded p-2 inline-block">{error}</div>}
+        {error && <div className="mb-4 text-red-700 bg-red-50 border border-red-200 rounded p-2 inline-block dark:bg-red-950/30 dark:text-red-300 dark:border-red-800">{error}</div>}
         {!loading && !error && (
           boards.length ? (
             <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {boards.map((b) => (
-                <li key={b.id} className="border rounded p-4 hover:shadow cursor-pointer" onClick={() => navigate(`/boards/${b.id}`)}>
+                <li key={b.id} className="border rounded p-4 hover:shadow cursor-pointer dark:border-gray-700 dark:hover:shadow-gray-800/40" onClick={() => navigate(`/boards/${b.id}`)}>
                   <div className="font-medium mb-1">{b.name}</div>
-                  <div className="text-sm text-gray-500 line-clamp-2">{b.description || '—'}</div>
-                  <div className="text-xs text-gray-400 mt-2">{new Date(b.createdAt).toLocaleString()}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{b.description || '—'}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-2">{new Date(b.createdAt).toLocaleString()}</div>
                 </li>
               ))}
             </ul>
           ) : (
-            <div className="text-gray-600">У вас пока нет досок. Создайте первую.</div>
+            <div className="text-gray-600 dark:text-gray-300">У вас пока нет досок. Создайте первую.</div>
           )
         )}
       </main>
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded shadow max-w-md w-full">
-            <div className="p-4 border-b flex justify-between items-center">
+          <div className="bg-white dark:bg-gray-800 rounded shadow max-w-md w-full">
+            <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
               <div className="font-medium">Новая доска</div>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-black">✕</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-black dark:text-gray-300 dark:hover:text-white">✕</button>
             </div>
             <form onSubmit={onSubmit} className="p-4 space-y-3">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Название доски<span className="text-red-500">*</span></label>
-                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border rounded px-3 py-2" placeholder="Например: Команда A" maxLength={200} required />
+                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Название доски<span className="text-red-500">*</span></label>
+                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border rounded px-3 py-2 dark:bg-gray-900 dark:border-gray-700" placeholder="Например: Команда A" maxLength={200} required />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Описание</label>
-                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full border rounded px-3 py-2" rows={4} maxLength={1000} placeholder="Необязательно" />
+                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Описание</label>
+                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full border rounded px-3 py-2 dark:bg-gray-900 dark:border-gray-700" rows={4} maxLength={1000} placeholder="Необязательно" />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded border">Отмена</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded border dark:border-gray-700">Отмена</button>
                 <button type="submit" disabled={creating} className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60">
                   {creating ? 'Создание...' : 'Создать'}
                 </button>
