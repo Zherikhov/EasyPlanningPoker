@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiUrl } from '../lib/apiBase'
+import { getSavedTheme, saveTheme, applyTheme } from '../lib/theme.js'
 
 const FIB = ['0','1','2','3','5','8','13','21','34']
 
@@ -11,6 +12,7 @@ export default function Estimate() {
   const [error, setError] = useState('')
   const [selected, setSelected] = useState('')
   const [isOwner, setIsOwner] = useState(false)
+  const [theme, setTheme] = useState('light')
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
 
   const logout = () => {
@@ -29,7 +31,7 @@ export default function Estimate() {
     try {
       const res = await fetch(apiUrl(`/api/boards/${id}/state`), { headers: { Authorization: `Bearer ${token}` } })
       if (res.status === 401) return logout()
-      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).message || 'Ошибка загрузки состояния')
+      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).message || 'Failed to load state')
       const data = await res.json()
       setState(data)
     } catch (e) {
@@ -43,6 +45,15 @@ export default function Estimate() {
       if (res.status === 401) return logout()
     } catch {}
   }
+
+  useEffect(() => {
+    // apply saved theme initially
+    try {
+      const saved = getSavedTheme()
+      setTheme(saved)
+      applyTheme(saved)
+    } catch {}
+  }, [])
 
   useEffect(() => {
     if (!token) { navigate('/login'); return }
@@ -72,9 +83,9 @@ export default function Estimate() {
       if (res.status === 401) return logout()
       if (!res.ok) {
         const j = await res.json().catch(()=>({}))
-        setError(j.message || 'Ошибка голосования')
+        setError(j.message || 'Voting error')
       }
-    } catch (e) { setError('Сеть недоступна') }
+    } catch (e) { setError('Network unavailable') }
   }
 
   const reveal = async () => {
@@ -82,9 +93,9 @@ export default function Estimate() {
       const res = await fetch(apiUrl(`/api/boards/${id}/reveal`), { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
       if (res.status === 401) return logout()
       if (!res.ok) {
-        setError((await res.json().catch(()=>({}))).message || 'Недостаточно прав')
+        setError((await res.json().catch(()=>({}))).message || 'Insufficient permissions')
       } else {
-        // Ensure immediate UI update: load revealed state so votes show and button toggles to "Новый раунд"
+        // Ensure immediate UI update: load revealed state so votes show and button toggles to "New round"
         await loadState()
       }
     } catch {}
@@ -100,7 +111,7 @@ export default function Estimate() {
       })
       if (res.status === 401) return logout()
       if (!res.ok) {
-        setError((await res.json().catch(()=>({}))).message || 'Недостаточно прав')
+        setError((await res.json().catch(()=>({}))).message || 'Insufficient permissions')
       } else {
         setSelected('')
         await loadState()
@@ -114,15 +125,29 @@ export default function Estimate() {
     <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
       <header className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(`/boards/${id}`)} className="text-sm text-blue-600 hover:underline">← К доске</button>
-          <h1 className="text-xl font-semibold">Оценка</h1>
+          <button onClick={() => navigate(`/boards/${id}`)} className="text-sm text-blue-600 hover:underline">← Back to board</button>
+          <h1 className="text-xl font-semibold">Estimation</h1>
         </div>
-        <div className="space-x-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const next = theme === 'light' ? 'dark' : 'light'
+              setTheme(next)
+              saveTheme(next)
+              applyTheme(next)
+            }}
+            className="toggle"
+            aria-label="Toggle theme"
+            title="Toggle theme"
+          >
+            <span className="moon">☾</span>
+            <span className="sun">☀</span>
+          </button>
           {state.status === 'voting' && (
-            <button onClick={reveal} className="text-sm bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded">Показать голоса</button>
+            <button onClick={reveal} className="text-sm bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded">Reveal votes</button>
           )}
           {state.status === 'revealed' && (
-            <button onClick={() => newRound({})} className="text-sm bg-green-600 text-white hover:bg-green-700 px-3 py-1 rounded">Новый раунд</button>
+            <button onClick={() => newRound({})} className="text-sm bg-green-600 text-white hover:bg-green-700 px-3 py-1 rounded">New round</button>
           )}
         </div>
       </header>
@@ -132,21 +157,21 @@ export default function Estimate() {
 
         {/* Task block */}
         <div className="border rounded p-4 mb-4 dark:border-gray-700">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Задача</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Task</div>
           {state.task ? (
             <div>
               <div className="font-medium">{state.task.title} {state.task.key && <span className="text-gray-500 dark:text-gray-400 text-sm">({state.task.key})</span>}</div>
-              {state.task.link && <a href={state.task.link} target="_blank" rel="noreferrer" className="text-blue-600 text-sm">Ссылка</a>}
+              {state.task.link && <a href={state.task.link} target="_blank" rel="noreferrer" className="text-blue-600 text-sm">Link</a>}
               {state.task.description && <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{state.task.description}</div>}
             </div>
           ) : (
-            <div className="text-gray-500 dark:text-gray-400">Задача не задана. Фасилитатор может начать новый раунд.</div>
+            <div className="text-gray-500 dark:text-gray-400">No task set. The facilitator can start a new round.</div>
           )}
         </div>
 
         {/* Cards */}
         <div className="mb-6">
-          <div className="mb-2 text-sm text-gray-500 dark:text-gray-400">Выберите карточку</div>
+          <div className="mb-2 text-sm text-gray-500 dark:text-gray-400">Pick a card</div>
           <div className="flex flex-wrap gap-2">
             {state.allowedValues.map(v => (
               <button key={v} disabled={state.status !== 'voting'} onClick={() => castVote(v)} className={`w-12 h-16 border rounded flex items-center justify-center text-lg dark:border-gray-700 ${selected===v? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700'}`}>
@@ -158,7 +183,7 @@ export default function Estimate() {
 
         {/* Participants */}
         <div className="mb-6">
-          <div className="mb-2 text-sm text-gray-500 dark:text-gray-400">Участники</div>
+          <div className="mb-2 text-sm text-gray-500 dark:text-gray-400">Participants</div>
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {state.participants.map(p => (
               <li key={p.userId} className="border rounded p-3 flex items-center justify-between dark:border-gray-700">
@@ -166,7 +191,7 @@ export default function Estimate() {
                   <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm">{p.initials || '?'}</div>
                   <div>
                     <div className="font-medium">{p.name}</div>
-                    <div className={`text-xs ${p.status==='voted'?'text-green-600': p.status==='waiting'?'text-gray-500 dark:text-gray-400':'text-orange-500'}`}>{p.status==='voted'?'проголосовал': p.status==='waiting'?'ожидает':'оффлайн'}</div>
+                    <div className={`text-xs ${p.status==='voted'?'text-green-600': p.status==='waiting'?'text-gray-500 dark:text-gray-400':'text-orange-500'}`}>{p.status==='voted'?'voted': p.status==='waiting'?'waiting':'offline'}</div>
                   </div>
                 </div>
                 <div className="text-lg min-w-8 text-center">
@@ -179,14 +204,14 @@ export default function Estimate() {
 
         {/* Status bar */}
         <div className="sticky bottom-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur border dark:border-gray-700 rounded p-3 flex items-center justify-between">
-          <div className="text-sm text-gray-600 dark:text-gray-300">Статус раунда: {state.status === 'voting' ? 'Голосование' : 'Раскрыто'}</div>
-          <div className="text-sm">Ваш выбор: <span className="font-medium">{selected || '—'}</span></div>
+          <div className="text-sm text-gray-600 dark:text-gray-300">Round status: {state.status === 'voting' ? 'Voting' : 'Revealed'}</div>
+          <div className="text-sm">Your choice: <span className="font-medium">{selected || '—'}</span></div>
         </div>
 
         {/* Results after reveal */}
         {state.status === 'revealed' && (
           <div className="mt-6">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Сводка</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Summary</div>
             {summary ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="border rounded p-3 dark:border-gray-700"><div className="text-xs text-gray-500 dark:text-gray-400">MIN</div><div className="text-xl">{summary.min}</div></div>
@@ -195,10 +220,10 @@ export default function Estimate() {
                 <div className="border rounded p-3 dark:border-gray-700"><div className="text-xs text-gray-500 dark:text-gray-400">MODE</div><div className="text-xl">{summary.mode}</div></div>
               </div>
             ) : (
-              <div className="text-gray-500 dark:text-gray-400">Нет данных</div>
+              <div className="text-gray-500 dark:text-gray-400">No data</div>
             )}
             {summary?.consensus && (
-              <div className="mt-3 p-3 rounded bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800">Консенсус достигнут</div>
+              <div className="mt-3 p-3 rounded bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800">Consensus reached</div>
             )}
           </div>
         )}

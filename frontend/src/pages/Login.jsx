@@ -86,12 +86,13 @@ export default function Login() {
     <div className={`signin ${theme === 'light' ? 'light' : ''}`}>
       <button
         type="button"
-        className="theme-toggle"
+        className="toggle"
         onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-        aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
-        title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+        aria-label="Toggle theme"
+        title="Toggle theme"
       >
-        {theme === 'light' ? 'Dark' : 'Light'}
+        <span className="moon">☾</span>
+        <span className="sun">☀</span>
       </button>
       <div className="card">
         <h1>Sign In</h1>

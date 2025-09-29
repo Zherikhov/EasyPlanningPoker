@@ -5,6 +5,7 @@ import Register from './pages/Register.jsx'
 import Boards from './pages/Boards.jsx'
 import BoardDetails from './pages/BoardDetails.jsx'
 import Estimate from './pages/Estimate.jsx'
+import Footer from './components/Footer.jsx'
 import { getSavedTheme, applyTheme } from './lib/theme.js'
 
 export default function App() {
@@ -25,14 +26,17 @@ export default function App() {
   }, [])
 
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/boards" element={<Boards />} />
-      <Route path="/boards/:id" element={<BoardDetails />} />
-      <Route path="/boards/:id/estimate" element={<Estimate />} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/boards" element={<Boards />} />
+        <Route path="/boards/:id" element={<BoardDetails />} />
+        <Route path="/boards/:id/estimate" element={<Estimate />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+      <Footer />
+    </>
   )
 }

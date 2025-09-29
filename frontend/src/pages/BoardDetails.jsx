@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiUrl } from '../lib/apiBase'
 import { getSavedTheme, saveTheme, applyTheme } from '../lib/theme.js'
@@ -49,7 +49,7 @@ export default function BoardDetails() {
         }
         if (!res.ok) {
           const data = await res.json().catch(() => ({}))
-          throw new Error(data.message || 'Не удалось загрузить доску')
+          throw new Error(data.message || 'Failed to load board')
         }
         const data = await res.json()
         setBoard(data)
@@ -64,10 +64,27 @@ export default function BoardDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
+  const menuRef = useRef(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!menuRef.current) return
+      if (!menuRef.current.contains(e.target)) setMenuOpen(false)
+    }
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [])
+
   return (
     <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
       <header className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
-        <button onClick={() => navigate('/boards')} className="text-sm text-blue-600 hover:underline">← К списку досок</button>
+        <button onClick={() => navigate('/boards')} className="text-sm text-blue-600 hover:underline">← Back to boards</button>
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
@@ -76,28 +93,47 @@ export default function BoardDetails() {
               saveTheme(next)
               applyTheme(next)
             }}
-            className="text-xs border px-2 py-1 rounded dark:border-gray-600"
-            title={theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
+            className="toggle"
+            aria-label="Toggle theme"
+            title="Toggle theme"
           >
-            {theme === 'light' ? 'Dark' : 'Light'}
+            <span className="moon">☾</span>
+            <span className="sun">☀</span>
           </button>
-          <button onClick={logout} className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-100">Выйти</button>
+          <div className="user-menu" ref={menuRef}>
+            <button
+              className="avatarBtn"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label="User menu"
+              onClick={() => setMenuOpen(v=>!v)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 21a8 8 0 0 0-16 0" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </button>
+            <div className={`dropdown ${menuOpen ? 'open' : ''}`} role="menu">
+              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); navigate('/boards') }}>Profile</button>
+              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); logout() }}>Sign out</button>
+            </div>
+          </div>
         </div>
       </header>
 
       <main className="p-6 max-w-3xl mx-auto">
-        {loading && <div>Загрузка...</div>}
+        {loading && <div>Loading...</div>}
         {error && <div className="text-red-700 bg-red-50 border border-red-200 rounded p-2 inline-block dark:bg-red-950/30 dark:text-red-300 dark:border-red-800">{error}</div>}
         {!loading && !error && board && (
           <div>
             <h1 className="text-2xl font-semibold mb-4">{board.name}</h1>
             <div className="space-y-2">
-              <div><span className="text-gray-500 dark:text-gray-400">Описание:</span> {board.description || '—'}</div>
-              <div><span className="text-gray-500 dark:text-gray-400">Создана:</span> {new Date(board.createdAt).toLocaleString()}</div>
+              <div><span className="text-gray-500 dark:text-gray-400">Description:</span> {board.description || '—'}</div>
+              <div><span className="text-gray-500 dark:text-gray-400">Created:</span> {new Date(board.createdAt).toLocaleString()}</div>
               <div><span className="text-gray-500 dark:text-gray-400">ID:</span> {board.id}</div>
             </div>
             <div className="mt-4">
-              <button onClick={() => navigate(`/boards/${board.id}/estimate`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Перейти к оценке</button>
+              <button onClick={() => navigate(`/boards/${board.id}/estimate`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Go to estimation</button>
             </div>
           </div>
         )}

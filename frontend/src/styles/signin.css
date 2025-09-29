@@ -121,12 +121,14 @@
   padding: 8px 10px;
 }
 
-/* Theme toggle button */
-.signin .theme-toggle{
+/* Theme toggle button — match Workspace toggle */
+.signin .toggle{
   position:absolute; top:16px; right:16px;
-  height:34px; padding:0 12px;
-  border-radius:9999px; border:1px solid var(--field-bd);
-  background: var(--panel); color: var(--text);
-  cursor:pointer; font-size:13px; font-weight:600;
+  height:40px; width:40px; padding:0; border:1px solid var(--field-bd);
+  background: var(--panel); color: var(--text); border-radius:10px; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
 }
-.signin .theme-toggle:hover{ border-color: var(--primary) }
+.signin .toggle .sun{display:none}
+/* In dark mode on html element, show sun instead of moon */
+html.dark .signin .toggle .moon{display:none}
+html.dark .signin .toggle .sun{display:inline}
