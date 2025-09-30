@@ -14,6 +14,13 @@ export default function Estimate() {
   const [isOwner, setIsOwner] = useState(false)
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
 
+  const allVoted = useMemo(() => {
+    try {
+      const arr = Array.isArray(state.participants) ? state.participants : []
+      return arr.length > 0 && arr.every(p => p.status === 'voted')
+    } catch { return false }
+  }, [state.participants])
+
   const logout = () => {
     try {
       // Persist current theme for auth pages before clearing user context
@@ -49,7 +56,6 @@ export default function Estimate() {
     // apply saved theme initially
     try {
       const saved = getSavedTheme()
-      setTheme(saved)
       applyTheme(saved)
     } catch {}
   }, [])
@@ -166,11 +172,25 @@ export default function Estimate() {
                   </div>
                 </div>
                 <div className="text-lg min-w-8 text-center">
-                  {state.status === 'revealed' ? (p.vote ?? '—') : (p.voteMasked ?? '—')}
+                  {(state.status === 'revealed' || allVoted) ? (p.vote ?? '—') : (p.voteMasked ?? '—')}
                 </div>
               </li>
             ))}
           </ul>
+        </div>
+
+        {/* Actions under participants */}
+        <div className="mb-6 flex items-center gap-3">
+          {state.status === 'voting' && (
+            <button onClick={reveal} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+              Show votes
+            </button>
+          )}
+          {state.status !== 'voting' && (
+            <button onClick={() => newRound()} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600">
+              New round
+            </button>
+          )}
         </div>
 
         {/* Status bar */}
