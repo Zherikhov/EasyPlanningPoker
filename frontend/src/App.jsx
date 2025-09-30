@@ -5,7 +5,9 @@ import Register from './pages/Register.jsx'
 import Boards from './pages/Boards.jsx'
 import BoardDetails from './pages/BoardDetails.jsx'
 import Estimate from './pages/Estimate.jsx'
+import Profile from './pages/Profile.jsx'
 import Footer from './components/Footer.jsx'
+import Layout from './components/Layout.jsx'
 import { getSavedTheme, applyTheme } from './lib/theme.js'
 
 export default function App() {
@@ -31,9 +33,15 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/boards" element={<Boards />} />
-        <Route path="/boards/:id" element={<BoardDetails />} />
-        <Route path="/boards/:id/estimate" element={<Estimate />} />
+
+        {/* Protected layout with header for all app pages */}
+        <Route element={<Layout />}>
+          <Route path="/boards" element={<Boards />} />
+          <Route path="/boards/:id" element={<BoardDetails />} />
+          <Route path="/boards/:id/estimate" element={<Estimate />} />
+          <Route path="/profile" element={<Profile />} />
+        </Route>
+
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
       <Footer />

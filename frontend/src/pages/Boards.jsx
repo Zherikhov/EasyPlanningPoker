@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiUrl } from '../lib/apiBase'
-import { getSavedTheme, saveTheme, applyTheme } from '../lib/theme.js'
+import { getSavedTheme, applyTheme } from '../lib/theme.js'
 import '../styles/workspace.css'
 
 export default function Boards() {
@@ -11,7 +11,6 @@ export default function Boards() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [form, setForm] = useState({ name: '', description: '' })
   const [creating, setCreating] = useState(false)
-  const [theme, setTheme] = useState('light')
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
 
@@ -111,77 +110,26 @@ export default function Boards() {
     .filter(Boolean)
     .slice(0, 4)
 
-  const menuRef = useRef(null)
-  const [menuOpen, setMenuOpen] = useState(false)
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (!menuRef.current) return
-      if (!menuRef.current.contains(e.target)) setMenuOpen(false)
-    }
-    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false) }
-    document.addEventListener('mousedown', onDocClick)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDocClick)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [])
 
   return (
     <div>
-      <header className="topbar">
-        <div className="brand" onClick={() => navigate('/boards')} style={{cursor:'pointer'}}>
-          <div className="logo">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor"/>
-              <path d="M8 12h8M12 8v8" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <span>Workspace</span>
-        </div>
-        <div className="search">
-          <svg className="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input id="search" type="search" placeholder="Search boards" value={query} onChange={(e)=>setQuery(e.target.value)} />
-        </div>
-        <div className="actions">
-          <button className="create" id="createTop" onClick={()=>setIsModalOpen(true)}>Create board</button>
-          <button className="toggle" id="themeToggle" aria-label="Toggle theme" onClick={() => {
-            const next = theme === 'light' ? 'dark' : 'light'
-            setTheme(next); saveTheme(next); applyTheme(next)
-          }}>
-            <span className="moon">☾</span>
-            <span className="sun">☀</span>
-          </button>
-          <div className="user-menu" ref={menuRef}>
-            <button
-              className="avatarBtn"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label="User menu"
-              onClick={() => setMenuOpen(v=>!v)}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21a8 8 0 0 0-16 0" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </button>
-            <div className={`dropdown ${menuOpen ? 'open' : ''}`} role="menu">
-              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); navigate('/boards') }}>Profile</button>
-              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); logout() }}>Sign out</button>
-            </div>
-          </div>
-        </div>
-      </header>
 
       <main className="wrap">
         <nav className="tabs">
           <button className="tab active" data-filter="active" type="button">Active</button>
           <button className="tab" data-filter="shared" type="button" disabled>Shared with me</button>
         </nav>
+
+        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:12}}>
+          <div className="search" style={{flex:1}}>
+            <svg className="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="search" type="search" placeholder="Search boards" value={query} onChange={(e)=>setQuery(e.target.value)} />
+          </div>
+          <button className="create" id="createTop" onClick={()=>setIsModalOpen(true)}>Create board</button>
+        </div>
 
         {loading && <div className="meta">Loading...</div>}
         {error && <div className="meta" style={{color:'#B91C1C'}}>{error}</div>}

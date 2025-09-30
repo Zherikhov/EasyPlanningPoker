@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiUrl } from '../lib/apiBase'
-import { getSavedTheme, saveTheme, applyTheme } from '../lib/theme.js'
+import { getSavedTheme, applyTheme } from '../lib/theme.js'
 
 const FIB = ['0','1','2','3','5','8','13','21','34']
 
@@ -12,7 +12,6 @@ export default function Estimate() {
   const [error, setError] = useState('')
   const [selected, setSelected] = useState('')
   const [isOwner, setIsOwner] = useState(false)
-  const [theme, setTheme] = useState('light')
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
 
   const logout = () => {
@@ -123,34 +122,6 @@ export default function Estimate() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
-      <header className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(`/boards/${id}`)} className="text-sm text-blue-600 hover:underline">← Back to board</button>
-          <h1 className="text-xl font-semibold">Estimation</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              const next = theme === 'light' ? 'dark' : 'light'
-              setTheme(next)
-              saveTheme(next)
-              applyTheme(next)
-            }}
-            className="toggle"
-            aria-label="Toggle theme"
-            title="Toggle theme"
-          >
-            <span className="moon">☾</span>
-            <span className="sun">☀</span>
-          </button>
-          {state.status === 'voting' && (
-            <button onClick={reveal} className="text-sm bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded">Reveal votes</button>
-          )}
-          {state.status === 'revealed' && (
-            <button onClick={() => newRound({})} className="text-sm bg-green-600 text-white hover:bg-green-700 px-3 py-1 rounded">New round</button>
-          )}
-        </div>
-      </header>
 
       <main className="p-6 max-w-5xl mx-auto">
         {error && <div className="mb-4 text-red-700 bg-red-50 border border-red-200 rounded p-2 inline-block dark:bg-red-950/30 dark:text-red-300 dark:border-red-800">{error}</div>}

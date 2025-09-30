@@ -1,14 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiUrl } from '../lib/apiBase'
-import { getSavedTheme, saveTheme, applyTheme } from '../lib/theme.js'
+import { getSavedTheme, applyTheme } from '../lib/theme.js'
 
 export default function BoardDetails() {
   const { id } = useParams()
   const [board, setBoard] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [theme, setTheme] = useState('light')
   const navigate = useNavigate()
 
   const logout = () => {
@@ -26,7 +25,6 @@ export default function BoardDetails() {
   useEffect(() => {
     try {
       const saved = getSavedTheme()
-      setTheme(saved)
       applyTheme(saved)
     } catch {}
 
@@ -64,62 +62,9 @@ export default function BoardDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  const menuRef = useRef(null)
-  const [menuOpen, setMenuOpen] = useState(false)
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (!menuRef.current) return
-      if (!menuRef.current.contains(e.target)) setMenuOpen(false)
-    }
-    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false) }
-    document.addEventListener('mousedown', onDocClick)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDocClick)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [])
 
   return (
     <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
-      <header className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
-        <button onClick={() => navigate('/boards')} className="text-sm text-blue-600 hover:underline">← Back to boards</button>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              const next = theme === 'light' ? 'dark' : 'light'
-              setTheme(next)
-              saveTheme(next)
-              applyTheme(next)
-            }}
-            className="toggle"
-            aria-label="Toggle theme"
-            title="Toggle theme"
-          >
-            <span className="moon">☾</span>
-            <span className="sun">☀</span>
-          </button>
-          <div className="user-menu" ref={menuRef}>
-            <button
-              className="avatarBtn"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label="User menu"
-              onClick={() => setMenuOpen(v=>!v)}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21a8 8 0 0 0-16 0" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </button>
-            <div className={`dropdown ${menuOpen ? 'open' : ''}`} role="menu">
-              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); navigate('/boards') }}>Profile</button>
-              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); logout() }}>Sign out</button>
-            </div>
-          </div>
-        </div>
-      </header>
 
       <main className="p-6 max-w-3xl mx-auto">
         {loading && <div>Loading...</div>}
