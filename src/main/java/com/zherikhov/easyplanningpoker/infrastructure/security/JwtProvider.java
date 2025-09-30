@@ -34,13 +34,16 @@ public class JwtProvider {
 
     public String generateTokenWithTtl(String subject, long ttlMillis) {
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + ttlMillis);
-        return Jwts.builder()
+        io.jsonwebtoken.JwtBuilder builder = Jwts.builder()
                 .setSubject(subject)
                 .setIssuedAt(now)
-                .setExpiration(expiry)
-                .signWith(key, SignatureAlgorithm.HS256)
-                .compact();
+                .signWith(key, SignatureAlgorithm.HS256);
+        // If ttlMillis <= 0, do not set expiration -> non-expiring token
+        if (ttlMillis > 0) {
+            Date expiry = new Date(now.getTime() + ttlMillis);
+            builder.setExpiration(expiry);
+        }
+        return builder.compact();
     }
 
     public String getSubject(String token) {
