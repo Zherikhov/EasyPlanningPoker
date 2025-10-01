@@ -1,8 +1,10 @@
 package com.zherikhov.easyplanningpoker.infrastructure.persistence.service;
 
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.dao.BoardMembersJpaRepository;
+import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.Board;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.BoardMembers;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.BoardMembers.BoardMemberId;
+import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,5 +32,14 @@ public class BoardMembersService {
 
     public void deleteById(BoardMemberId id) {
         boardMembersJpaRepository.deleteById(id);
+    }
+
+    // New helpers for sharing feature
+    public List<Board> findBoardsSharedWith(User user) {
+        return boardMembersJpaRepository.findBoardsByUser(user);
+    }
+
+    public boolean isMember(Board board, User user) {
+        return boardMembersJpaRepository.existsByBoardAndUser(board, user);
     }
 }

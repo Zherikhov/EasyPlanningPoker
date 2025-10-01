@@ -8,6 +8,9 @@ export default function BoardDetails() {
   const [board, setBoard] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [shareEmail, setShareEmail] = useState('')
+  const [shareMsg, setShareMsg] = useState('')
+  const [sharing, setSharing] = useState(false)
   const navigate = useNavigate()
 
   const logout = () => {
@@ -71,14 +74,40 @@ export default function BoardDetails() {
         {error && <div className="text-red-700 bg-red-50 border border-red-200 rounded p-2 inline-block dark:bg-red-950/30 dark:text-red-300 dark:border-red-800">{error}</div>}
         {!loading && !error && board && (
           <div>
-            <h1 className="text-2xl font-semibold mb-4">{board.name}</h1>
+            <div className="flex items-center gap-3 mb-4">
+              <h1 className="text-2xl font-semibold">{board.name}</h1>
+              {board.shared && <span className="px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300">Shared</span>}
+            </div>
             <div className="space-y-2">
               <div><span className="text-gray-500 dark:text-gray-400">Description:</span> {board.description || '—'}</div>
               <div><span className="text-gray-500 dark:text-gray-400">Created:</span> {new Date(board.createdAt).toLocaleString()}</div>
               <div><span className="text-gray-500 dark:text-gray-400">ID:</span> {board.id}</div>
             </div>
-            <div className="mt-4">
+            <div className="mt-4 flex gap-3 items-center">
               <button onClick={() => navigate(`/boards/${board.id}/estimate`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Go to estimation</button>
+            </div>
+
+            {/* Share form (only visible to owners in UX, but backend also validates) */}
+            <div className="mt-8 border-t border-gray-200 dark:border-gray-800 pt-4">
+              <h2 className="text-lg font-medium mb-2">Share this board</h2>
+              <div className="flex gap-2 items-center">
+                <input type="email" value={shareEmail} onChange={(e)=>setShareEmail(e.target.value)} placeholder="user@example.com" className="flex-1 border rounded px-3 py-2 bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700" />
+                <button disabled={sharing || !shareEmail} onClick={async ()=>{
+                  setShareMsg(''); setError(''); setSharing(true)
+                  try {
+                    const token = localStorage.getItem('accessToken')
+                    const res = await fetch(apiUrl(`/api/boards/${id}/share`), { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body: JSON.stringify({ email: shareEmail }) })
+                    if (res.status === 401) { logout(); return }
+                    const data = await res.json().catch(()=>({}))
+                    if (!res.ok) throw new Error(data.message || 'Failed to share')
+                    setShareMsg('Invitation sent. If the user exists, the board is now shared.')
+                    setShareEmail('')
+                  } catch(e) {
+                    setError(e.message || 'Failed to share')
+                  } finally { setSharing(false) }
+                }} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50">{sharing? 'Sharing…' : 'Share'}</button>
+              </div>
+              {shareMsg && <div className="text-green-700 mt-2 dark:text-green-400">{shareMsg}</div>}
             </div>
           </div>
         )}

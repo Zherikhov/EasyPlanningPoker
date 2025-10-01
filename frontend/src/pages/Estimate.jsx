@@ -11,7 +11,7 @@ export default function Estimate() {
   const [state, setState] = useState({ status: 'voting', task: null, participants: [], allowedValues: FIB, summary: null })
   const [error, setError] = useState('')
   const [selected, setSelected] = useState('')
-  const [isOwner, setIsOwner] = useState(false)
+  const [isFacilitator, setIsFacilitator] = useState(false)
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
 
   const allVoted = useMemo(() => {
@@ -40,6 +40,13 @@ export default function Estimate() {
       if (!res.ok) throw new Error((await res.json().catch(()=>({}))).message || 'Failed to load state')
       const data = await res.json()
       setState(data)
+      try {
+        const meRaw = localStorage.getItem('currentUser')
+        const me = meRaw ? JSON.parse(meRaw) : null
+        const myId = me?.id
+        if (data && data.facilitatorId && myId) setIsFacilitator(String(data.facilitatorId) === String(myId))
+        else setIsFacilitator(false)
+      } catch { setIsFacilitator(false) }
     } catch (e) {
       setError(e.message)
     }
@@ -72,6 +79,7 @@ export default function Estimate() {
     es.addEventListener('ROUND_STARTED', () => { setSelected(''); loadState() })
     es.addEventListener('VOTE_CAST', () => loadState())
     es.addEventListener('USER_JOINED', () => loadState())
+    es.addEventListener('USER_REMOVED', () => loadState())
     return () => { try { es.close() } catch {} }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
@@ -124,6 +132,29 @@ export default function Estimate() {
     } catch {}
   }
 
+  const removeParticipant = async (uid) => {
+    try {
+      // eslint-disable-next-line no-restricted-globals
+      const ok = typeof window !== 'undefined' ? window.confirm('Remove this participant from the current session?') : true
+      if (!ok) return
+      const res = await fetch(apiUrl(`/api/boards/${id}/participants/${uid}`), { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      if (res.status === 401) return logout()
+      if (res.status === 403) {
+        const j = await res.json().catch(()=>({}))
+        setError(j.message || 'Only facilitator can remove participants')
+        return
+      }
+      if (!res.ok && res.status !== 204) {
+        const j = await res.json().catch(()=>({}))
+        setError(j.message || 'Failed to remove participant')
+        return
+      }
+      await loadState()
+    } catch (e) {
+      setError('Network error')
+    }
+  }
+
   const summary = state.summary
 
   return (
@@ -163,7 +194,7 @@ export default function Estimate() {
           <div className="mb-2 text-sm text-gray-500 dark:text-gray-400">Participants</div>
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {state.participants.map(p => (
-              <li key={p.userId} className="border rounded p-3 flex items-center justify-between dark:border-gray-700">
+              <li key={p.userId} className="border rounded p-3 flex items-center justify-between gap-3 dark:border-gray-700">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm">{p.initials || '?'}</div>
                   <div>
@@ -171,8 +202,13 @@ export default function Estimate() {
                     <div className={`text-xs ${p.status==='voted'?'text-green-600': p.status==='waiting'?'text-gray-500 dark:text-gray-400':'text-orange-500'}`}>{p.status==='voted'?'voted': p.status==='waiting'?'waiting':'offline'}</div>
                   </div>
                 </div>
-                <div className="text-lg min-w-8 text-center">
-                  {(state.status === 'revealed' || allVoted) ? (p.vote ?? '—') : (p.voteMasked ?? '—')}
+                <div className="flex items-center gap-2">
+                  <div className="text-lg min-w-8 text-center">
+                    {(state.status === 'revealed' || allVoted) ? (p.vote ?? '—') : (p.voteMasked ?? '—')}
+                  </div>
+                  {isFacilitator && String(p.userId) !== String(state.facilitatorId) && (
+                    <button title="Remove from session" onClick={() => removeParticipant(p.userId)} className="ml-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">✕</button>
+                  )}
                 </div>
               </li>
             ))}

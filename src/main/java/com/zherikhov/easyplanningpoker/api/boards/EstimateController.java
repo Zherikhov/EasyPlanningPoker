@@ -115,6 +115,7 @@ public class EstimateController {
         resp.put("participants", participants(board, s));
         resp.put("allowedValues", FIBONACCI);
         resp.put("summary", s.status == RoundStatus.revealed ? s.summary : null);
+        resp.put("facilitatorId", board.getOwner().getId());
         log.debug("State fetched: boardId={}, status={}, votes={}, task={}", id, s.status, s.votes.size(), s.task != null ? s.task.key() : null);
         return ResponseEntity.ok(resp);
     }
@@ -230,6 +231,39 @@ public class EstimateController {
             remove.run();
         }
         return emitter;
+    }
+
+    @DeleteMapping("/participants/{userId}")
+    public ResponseEntity<?> removeParticipant(@PathVariable UUID id, @PathVariable UUID userId) {
+        Optional<User> uo = currentUser();
+        if (uo.isEmpty())
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing or invalid token"));
+        User requester = uo.get();
+        Optional<Board> b = boardService.findById(id);
+        if (b.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Board not found"));
+        if (!isFacilitator(b.get(), requester))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error("FORBIDDEN", "Only facilitator can remove participants"));
+        // cannot remove facilitator himself from participant list
+        if (b.get().getOwner().getId().equals(userId)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error("BAD_REQUEST", "Cannot remove facilitator"));
+        }
+        RoundState s = stateForBoard(id);
+        boolean changed = false;
+        if (s.votes.remove(userId) != null) changed = true;
+        if (s.lastSeen.remove(userId) != null) changed = true;
+        // Also drop SSE emitter for that user if present (they can reconnect later)
+        try {
+            ConcurrentHashMap<UUID, SseEmitter> map = EMITTERS.computeIfAbsent(id, k -> new ConcurrentHashMap<>());
+            SseEmitter em = map.remove(userId);
+            if (em != null) {
+                try { em.complete(); } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+        if (changed) {
+            log.info("Participant removed from session: boardId={}, removedUserId={}, byUserId={}", id, userId, requester.getId());
+        }
+        emit(id, "USER_REMOVED", Map.of("userId", userId));
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/round")

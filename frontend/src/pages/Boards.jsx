@@ -12,6 +12,7 @@ export default function Boards() {
   const [form, setForm] = useState({ name: '', description: '' })
   const [creating, setCreating] = useState(false)
   const [query, setQuery] = useState('')
+  const [tab, setTab] = useState('active') // 'active' | 'shared'
   const navigate = useNavigate()
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
@@ -93,15 +94,19 @@ export default function Boards() {
     } finally { setCreating(false) }
   }
 
-  // client-side filtering similar to demo search
+  // client-side filtering with tab and search
   const filtered = useMemo(() => {
     const q = (query || '').toLowerCase()
-    if (!q) return boards
-    return boards.filter(b =>
+    let list = boards
+    if (tab === 'shared') {
+      list = list.filter(b => b.shared)
+    }
+    if (!q) return list
+    return list.filter(b =>
       (b.name || '').toLowerCase().includes(q) ||
       (b.description || '').toLowerCase().includes(q)
     )
-  }, [boards, query])
+  }, [boards, query, tab])
 
   // helper to derive chips from description (comma separated) similar to demo tags
   const chips = (text) => (text || '')
@@ -116,8 +121,8 @@ export default function Boards() {
 
       <main className="wrap">
         <nav className="tabs">
-          <button className="tab active" data-filter="active" type="button">Active</button>
-          <button className="tab" data-filter="shared" type="button" disabled>Shared with me</button>
+          <button className={`tab ${tab === 'active' ? 'active' : ''}`} data-filter="active" type="button" onClick={()=>setTab('active')}>Active</button>
+          <button className={`tab ${tab === 'shared' ? 'active' : ''}`} data-filter="shared" type="button" onClick={()=>setTab('shared')} disabled={!boards.some(b=>b.shared)}>Shared with me</button>
         </nav>
 
         <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:12}}>
@@ -141,7 +146,10 @@ export default function Boards() {
                 <article key={b.id} className="card" onClick={()=>navigate(`/boards/${b.id}`)}>
                   <div className="row">
                     <div className="title">{b.name}</div>
-                    <span className="kebab">⋯</span>
+                    <div style={{display:'flex', alignItems:'center', gap:8}}>
+                      {b.shared && <span className="badge" title="Shared with you">Shared</span>}
+                      <span className="kebab">⋯</span>
+                    </div>
                   </div>
                   {!!chips(b.description).length && (
                     <div className="badges">
