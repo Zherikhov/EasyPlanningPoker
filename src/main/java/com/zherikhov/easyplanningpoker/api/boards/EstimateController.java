@@ -43,7 +43,7 @@ public class EstimateController {
     }
 
     // Allowed Fibonacci values
-    private static final List<String> FIBONACCI = List.of("0", "1", "2", "3", "5", "8", "13", "21", "34");
+    private static final List<String> FIBONACCI = List.of("0", "1", "2", "3", "5", "8", "13", "21", "34", "55");
 
     // In-memory state per board
     private static final Map<UUID, RoundState> STATES = new ConcurrentHashMap<>();

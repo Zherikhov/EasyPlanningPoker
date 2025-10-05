@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.zherikhov</groupId>
     <artifactId>EasyPlanningPoker</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.1</version>
     <name>EasyPlanningPoker</name>
     <description>EasyPlanningPoker</description>
     <url/>

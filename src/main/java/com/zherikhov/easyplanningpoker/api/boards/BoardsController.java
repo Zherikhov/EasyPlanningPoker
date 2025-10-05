@@ -44,20 +44,17 @@ public class BoardsController {
         List<BoardResponse> result;
         if (shared == null) {
             // both
-            Set<UUID> seen = new HashSet<>();
             List<BoardResponse> owned = boardService.findByOwner(me).stream()
-                    .peek(b -> seen.add(b.getId()))
                     .map(BoardResponse::from)
                     .toList();
             List<BoardResponse> sharedWith = boardMembersService.findBoardsSharedWith(me).stream()
                     .filter(b -> !Objects.equals(b.getOwner().getId(), me.getId()))
-                    .filter(b -> seen.add(b.getId()))
                     .map(BoardResponse::shared)
                     .toList();
             result = new ArrayList<>(owned.size() + sharedWith.size());
             result.addAll(owned);
             result.addAll(sharedWith);
-        } else if (Boolean.TRUE.equals(shared)) {
+        } else if (shared) {
             result = boardMembersService.findBoardsSharedWith(me).stream()
                     .filter(b -> !Objects.equals(b.getOwner().getId(), me.getId()))
                     .map(BoardResponse::shared)
@@ -75,6 +72,7 @@ public class BoardsController {
     public ResponseEntity<?> create(@Valid @RequestBody CreateBoardRequest dto) {
         User owner = currentUser().orElse(null);
         if (owner == null) return unauthorized();
+
         Board board = new Board();
         board.setOwner(owner);
         board.setName(dto.name());
@@ -92,7 +90,9 @@ public class BoardsController {
 
         Optional<Board> boardOpt = boardService.findById(id);
         if (boardOpt.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Board not found"));
+
         Board board = boardOpt.get();
+
         if (!Objects.equals(board.getOwner().getId(), me.getId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error("FORBIDDEN", "You are not the owner"));
         }
