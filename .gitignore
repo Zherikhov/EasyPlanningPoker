@@ -32,11 +32,13 @@ target
 *.nar
 *.ear
 *.zip
-*.tar.gz
+*.tar
+*.gz
 *.rar
 
 # other
-#*.secure.properties
+application.secure.properties
+.*.secure.properties
 
 # Node modules
 node_modules/
