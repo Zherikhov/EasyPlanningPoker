@@ -9,12 +9,11 @@ import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.User;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.BoardMembersService;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.BoardService;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserService;
+import com.zherikhov.easyplanningpoker.infrastructure.security.CurrentUserProvider;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -28,17 +27,19 @@ public class BoardsController {
     private final UserService userService;
     private final BoardService boardService;
     private final BoardMembersService boardMembersService;
+    private final CurrentUserProvider currentUserProvider;
 
-    public BoardsController(UserService userService, BoardService boardService, BoardMembersService boardMembersService) {
+    public BoardsController(UserService userService, BoardService boardService, BoardMembersService boardMembersService, CurrentUserProvider currentUserProvider) {
         this.userService = userService;
         this.boardService = boardService;
         this.boardMembersService = boardMembersService;
+        this.currentUserProvider = currentUserProvider;
     }
 
     // List boards: owned, shared, or both (default)
     @GetMapping
     public ResponseEntity<?> list(@RequestParam(value = "shared", required = false) Boolean shared) {
-        User me = currentUser().orElse(null);
+        User me = currentUserProvider.getCurrentUser().orElse(null);
         if (me == null) return unauthorized();
 
         List<BoardResponse> result;
@@ -70,7 +71,7 @@ public class BoardsController {
 
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateBoardRequest dto) {
-        User owner = currentUser().orElse(null);
+        User owner = currentUserProvider.getCurrentUser().orElse(null);
         if (owner == null) return unauthorized();
 
         Board board = new Board();
@@ -85,7 +86,7 @@ public class BoardsController {
     // Share board by email
     @PostMapping("/{id}/share")
     public ResponseEntity<?> share(@PathVariable UUID id, @Valid @RequestBody ShareBoardRequest req) {
-        User me = currentUser().orElse(null);
+        User me = currentUserProvider.getCurrentUser().orElse(null);
         if (me == null) return unauthorized();
 
         Optional<Board> boardOpt = boardService.findById(id);
@@ -118,7 +119,7 @@ public class BoardsController {
 
     @GetMapping("/{id}")
     public ResponseEntity<?> get(@PathVariable UUID id) {
-        Optional<User> userOpt = currentUser();
+        Optional<User> userOpt = currentUserProvider.getCurrentUser();
         if (userOpt.isEmpty()) {
             return unauthorized();
         }
@@ -132,32 +133,6 @@ public class BoardsController {
         boolean isShared = !Objects.equals(board.getOwner().getId(), userOpt.get().getId()) &&
                 boardMembersService.isMember(board, userOpt.get());
         return ResponseEntity.ok(isShared ? BoardResponse.shared(board) : BoardResponse.from(board));
-    }
-
-    private Optional<User> currentUser() {
-       Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            log.warn("Unauthorized access: no authentication in context");
-            return Optional.empty();
-        }
-
-        Object principal = auth.getPrincipal();
-        try {
-            String idStr;
-            if (principal instanceof org.springframework.security.core.userdetails.User u) {
-                idStr = u.getUsername();
-            } else if (principal instanceof String s) {
-                idStr = s;
-            } else {
-                log.debug("Unsupported principal type: {}", principal.getClass().getName());
-                return Optional.empty();
-            }
-            UUID userId = UUID.fromString(idStr);
-            return userService.findById(userId);
-        } catch (Exception e) {
-            log.debug("Failed to resolve current user from principal: {}", e.getMessage());
-            return Optional.empty();
-        }
     }
 
     private static ResponseEntity<?> unauthorized() {

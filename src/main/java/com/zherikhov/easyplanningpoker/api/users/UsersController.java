@@ -6,12 +6,11 @@ import com.zherikhov.easyplanningpoker.infrastructure.persistence.entity.UserPro
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserProfilesService;
 import com.zherikhov.easyplanningpoker.infrastructure.persistence.service.UserService;
 import com.zherikhov.easyplanningpoker.infrastructure.security.JwtProvider;
+import com.zherikhov.easyplanningpoker.infrastructure.security.CurrentUserProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,16 +27,18 @@ public class UsersController {
     private final JwtProvider jwtProvider;
     private final UserService userService;
     private final UserProfilesService userProfilesService;
+    private final CurrentUserProvider currentUserProvider;
 
-    public UsersController(JwtProvider jwtProvider, UserService userService, UserProfilesService userProfilesService) {
+    public UsersController(JwtProvider jwtProvider, UserService userService, UserProfilesService userProfilesService, CurrentUserProvider currentUserProvider) {
         this.jwtProvider = jwtProvider;
         this.userService = userService;
         this.userProfilesService = userProfilesService;
+        this.currentUserProvider = currentUserProvider;
     }
 
     @GetMapping("/me")
     public ResponseEntity<?> me(HttpServletRequest request) {
-        Optional<User> fromContext = resolveCurrentUserFromSecurityContext();
+        Optional<User> fromContext = currentUserProvider.getCurrentUser();
         if (fromContext.isPresent()) {
             User user = fromContext.get();
 
@@ -77,27 +78,6 @@ public class UsersController {
         CurrentUserResponse dto = CurrentUserResponse.from(user, profile);
         log.info("/api/users/me success: userId={}", user.getId());
         return ResponseEntity.ok(dto);
-    }
-
-    private Optional<User> resolveCurrentUserFromSecurityContext() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) return Optional.empty();
-
-        Object principal = auth.getPrincipal();
-        try {
-            String idStr;
-            if (principal instanceof org.springframework.security.core.userdetails.User u) {
-                idStr = u.getUsername();
-            } else if (principal instanceof String s) {
-                idStr = s;
-            } else {
-                return Optional.empty();
-            }
-            UUID userId = UUID.fromString(idStr);
-            return userService.findById(userId);
-        } catch (Exception e) {
-            return Optional.empty();
-        }
     }
 
     private static Map<String, String> error(String message) {

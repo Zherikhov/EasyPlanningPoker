@@ -12,10 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import com.zherikhov.easyplanningpoker.infrastructure.security.CurrentUserProvider;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -35,11 +34,13 @@ public class EstimateController {
     private final UserService userService;
     private final BoardService boardService;
     private final UserProfilesService userProfilesService;
+    private final CurrentUserProvider currentUserProvider;
 
-    public EstimateController(UserService userService, BoardService boardService, UserProfilesService userProfilesService) {
+    public EstimateController(UserService userService, BoardService boardService, UserProfilesService userProfilesService, CurrentUserProvider currentUserProvider) {
         this.userService = userService;
         this.boardService = boardService;
         this.userProfilesService = userProfilesService;
+        this.currentUserProvider = currentUserProvider;
     }
 
     // Allowed Fibonacci values
@@ -101,7 +102,7 @@ public class EstimateController {
 
     @GetMapping({"/state", "/estimate"})
     public ResponseEntity<?> state(@PathVariable UUID id) {
-        Optional<User> uo = currentUser();
+        Optional<User> uo = currentUserProvider.getCurrentUser();
         if (uo.isEmpty())
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing or invalid token"));
         ResponseEntity<?> access = checkBoardAccess(id, uo.get());
@@ -122,7 +123,7 @@ public class EstimateController {
 
     @PostMapping("/join")
     public ResponseEntity<?> join(@PathVariable UUID id) {
-        Optional<User> uo = currentUser();
+        Optional<User> uo = currentUserProvider.getCurrentUser();
         if (uo.isEmpty())
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing or invalid token"));
         User user = uo.get();
@@ -138,7 +139,7 @@ public class EstimateController {
 
     @PostMapping("/vote")
     public ResponseEntity<?> vote(@PathVariable UUID id, @RequestBody VoteRequest dto) {
-        Optional<User> uo = currentUser();
+        Optional<User> uo = currentUserProvider.getCurrentUser();
         if (uo.isEmpty())
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing or invalid token"));
         User user = uo.get();
@@ -168,7 +169,7 @@ public class EstimateController {
 
     @PostMapping("/reveal")
     public ResponseEntity<?> reveal(@PathVariable UUID id) {
-        Optional<User> uo = currentUser();
+        Optional<User> uo = currentUserProvider.getCurrentUser();
         if (uo.isEmpty())
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing or invalid token"));
         User user = uo.get();
@@ -187,7 +188,7 @@ public class EstimateController {
 
     @GetMapping(path = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter events(HttpServletRequest request, @PathVariable UUID id) {
-        Optional<User> uo = currentUser();
+        Optional<User> uo = currentUserProvider.getCurrentUser();
         if (uo.isEmpty()) return null;
 
         long timeoutMs = 120L * 60L * 1000L;
@@ -235,7 +236,7 @@ public class EstimateController {
 
     @DeleteMapping("/participants/{userId}")
     public ResponseEntity<?> removeParticipant(@PathVariable UUID id, @PathVariable UUID userId) {
-        Optional<User> uo = currentUser();
+        Optional<User> uo = currentUserProvider.getCurrentUser();
         if (uo.isEmpty())
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing or invalid token"));
         User requester = uo.get();
@@ -268,7 +269,7 @@ public class EstimateController {
 
     @PostMapping("/round")
     public ResponseEntity<?> round(@PathVariable UUID id, @RequestBody RoundRequest dto) {
-        Optional<User> uo = currentUser();
+        Optional<User> uo = currentUserProvider.getCurrentUser();
         if (uo.isEmpty())
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing or invalid token"));
         User user = uo.get();
@@ -290,7 +291,7 @@ public class EstimateController {
 
     @GetMapping("/history")
     public ResponseEntity<?> history(@PathVariable UUID id, @RequestParam(name = "limit", required = false, defaultValue = "20") int limit) {
-        Optional<User> uo = currentUser();
+        Optional<User> uo = currentUserProvider.getCurrentUser();
         if (uo.isEmpty())
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing or invalid token"));
         Optional<Board> b = boardService.findById(id);
@@ -303,31 +304,6 @@ public class EstimateController {
         return ResponseEntity.ok(items);
     }
 
-    private Optional<User> currentUser() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            log.warn("Unauthorized access: no authentication in context");
-            return Optional.empty();
-        }
-
-        Object principal = auth.getPrincipal();
-        try {
-            String idStr;
-            if (principal instanceof org.springframework.security.core.userdetails.User u) {
-                idStr = u.getUsername();
-            } else if (principal instanceof String s) {
-                idStr = s;
-            } else {
-                log.debug("Unsupported principal type: {}", principal.getClass().getName());
-                return Optional.empty();
-            }
-            UUID userId = UUID.fromString(idStr);
-            return userService.findById(userId);
-        } catch (Exception e) {
-            log.debug("Failed to resolve current user from principal: {}", e.getMessage());
-            return Optional.empty();
-        }
-    }
 
     private boolean isFacilitator(Board board, User user) {
         return board.getOwner().getId().equals(user.getId());
@@ -471,7 +447,7 @@ public class EstimateController {
 
     @PostMapping("/reset")
     public ResponseEntity<?> reset(@PathVariable UUID id) {
-        Optional<User> uo = currentUser();
+        Optional<User> uo = currentUserProvider.getCurrentUser();
         if (uo.isEmpty())
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing or invalid token"));
         User user = uo.get();

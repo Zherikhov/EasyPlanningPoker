@@ -13,6 +13,8 @@ import java.util.Optional;
 @Service
 public class AuthServiceImpl implements AuthService {
 
+    private static final long REMEMBER_ME_TTL_MS = 30L * 24 * 60 * 60 * 1000; // 30 days
+
     private final JwtProvider jwtProvider;
     private final UserJpaRepository repository;
     private final PasswordEncoder passwordEncoder;
@@ -34,39 +36,22 @@ public class AuthServiceImpl implements AuthService {
         if (!matchesPassword(request.password(), user.getPasswordHash())) {
             return Optional.empty();
         }
-        String token = jwtProvider.generateToken(String.valueOf(user.getId()));
+
+        boolean remember = request.rememberMe();
+        long ttlMs = remember ? REMEMBER_ME_TTL_MS : jwtProvider.getExpirationMillis();
+        String token;
+        int expiresInSeconds;
+        if (ttlMs > 0) {
+            token = jwtProvider.generateTokenWithTtl(String.valueOf(user.getId()), ttlMs);
+            expiresInSeconds = (int) Math.min(Integer.MAX_VALUE, ttlMs / 1000);
+        } else {
+            token = jwtProvider.generateToken(String.valueOf(user.getId()));
+            expiresInSeconds = 0; // non-expiring or unknown
+        }
+
         UserResponse userResponse = new UserResponse(user.getId(), user.getEmail(), user.getUsername());
-        return Optional.of(new AuthResponse(token, 3600, userResponse));
+        return Optional.of(new AuthResponse(token, expiresInSeconds, userResponse));
     }
-
-//    @Override
-//    public Optional<Map<String, Object>> refresh(String refreshToken) {
-//        if (refreshToken == null) {
-//            return Optional.empty();
-//        }
-//        try {
-//            String userId = jwtProvider.getSubject(refreshToken);
-//            String token = jwtProvider.generateToken(userId);
-//            return Optional.of(Map.of("accessToken", token, "expiresIn", 3600));
-//        } catch (Exception e) {
-//            return Optional.empty();
-//        }
-//    }
-
-//    @Override
-//    public Optional<UserResponse> me(String authHeader) {
-//        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-//            return Optional.empty();
-//        }
-//        String token = authHeader.substring(7);
-//        try {
-//            String userId = jwtProvider.getSubject(token);
-//            return repository.findById(userId)
-//                    .map(u -> new UserResponse(UUID.fromString(u.getId()), u.getEmail(), u.getDisplayName()));
-//        } catch (Exception e) {
-//            return Optional.empty();
-//        }
-//    }
 
     private boolean matchesPassword(String rawPassword, String storedHash) {
         if (storedHash == null) return false;

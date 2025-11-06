@@ -55,4 +55,8 @@ public class JwtProvider {
                 .getBody()
                 .getSubject();
     }
+
+    public long getExpirationMillis() {
+        return expirationMillis;
+    }
 }

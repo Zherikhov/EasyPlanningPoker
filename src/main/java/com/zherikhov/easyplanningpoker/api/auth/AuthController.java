@@ -47,7 +47,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody AuthRequest request) {
         return authService.login(request)
                 .<ResponseEntity<?>>map(response -> {
                     log.info("Login successful: {}" , request.email());

@@ -38,6 +38,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        // Skip auth endpoints entirely to avoid interfering with login/registration
+        return path != null && path.startsWith("/api/auth/");
+    }
+
+    @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
             throws IOException {
 
@@ -50,19 +57,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
-            filterChain.doFilter(request, response);
         } catch (io.jsonwebtoken.ExpiredJwtException e) {
             SecurityContextHolder.clearContext();
             log.warn("JWT expired: {}", e.getMessage());
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            // Do not write to response here; let the chain continue so exceptionHandling can respond uniformly
         } catch (io.jsonwebtoken.JwtException e) {
             SecurityContextHolder.clearContext();
             log.warn("Invalid JWT: {}", e.getMessage());
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
             log.error("Authentication filter error: {}", e.getMessage());
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+        } finally {
+            try {
+                filterChain.doFilter(request, response);
+            } catch (Exception chainEx) {
+                // If downstream fails, just log; container will handle
+                log.debug("Filter chain terminated with exception: {}", chainEx.getMessage());
+            }
         }
     }
 
