@@ -1,32 +1,45 @@
-# Стадия сборки
-FROM maven:3.9.5-eclipse-temurin-21 AS builder
+# syntax=docker/dockerfile:1
 
+# 1) Сборка фронтенда (React + Vite)
+FROM node:18-alpine AS frontend-builder
+WORKDIR /frontend
+COPY frontend/package*.json ./
+# Быстрая и детерминированная установка зависимостей
+RUN npm ci --no-audit --no-fund
+# ... existing code ...
+COPY frontend .
+# Продакшн-сборка SPA (в dist)
+RUN npm run build
+
+# 2) Сборка бэкенда (Spring Boot, Java 21)
+FROM maven:3.9.9-eclipse-temurin-21 AS backend-builder
 WORKDIR /app
-# Копируем только файлы, влияющие на зависимости, чтобы кэшировать их отдельно
+# Кэшируем зависимости Maven
 COPY pom.xml ./
 COPY .mvn/ .mvn/
-# Предзагружаем зависимости для кэширования
-RUN mvn -q -e -DskipTests dependency:go-offline
+RUN mvn -B -q -DskipTests dependency:go-offline
 # ... existing code ...
-# Теперь копируем исходники
+# Копируем исходники
 COPY src ./src
-# Если в проекте есть ресурсы вне src (например, frontend сборка, которую нужно встраивать), добавьте COPY нужных директорий
-# Сборка .jar файла
-RUN mvn -q clean package -DskipTests
-# ... existing code ...
-# 🏃 Стадия выполнения
-FROM eclipse-temurin:21-jre
+# Встраиваем собранный фронтенд как статические ресурсы Spring Boot
+# (SPA будет отдаваться самим приложением на 8080)
+COPY --from=frontend-builder /frontend/dist ./src/main/resources/static
+# Собираем исполняемый JAR без тестов
+RUN mvn -B -q clean package -DskipTests
 
+# 3) Runtime-образ (минимальный JRE 21)
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# Копируем только готовый .jar из предыдущей стадии
-COPY --from=builder /app/target/*.jar app.jar
+# Копируем только итоговый JAR
+COPY --from=backend-builder /app/target/*.jar /app/app.jar
 
-# Открываем порт приложения
+# Порт приложения
 EXPOSE 8080
 
-# Возможность прокинуть JVM/SPRING опции через переменные окружения
+# Параметры для JVM и Spring профилей
 ENV JAVA_OPTS="" \
     SPRING_PROFILES_ACTIVE=""
+
 # Запуск приложения
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} -jar /app/app.jar"]
