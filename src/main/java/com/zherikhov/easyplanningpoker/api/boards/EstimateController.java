@@ -15,6 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.zherikhov.easyplanningpoker.infrastructure.security.CurrentUserProvider;
+import com.zherikhov.easyplanningpoker.infrastructure.sse.SseHub;
+import com.zherikhov.easyplanningpoker.infrastructure.events.RedisEventBus;
+import com.zherikhov.easyplanningpoker.infrastructure.state.RedisRoundStateService;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -36,11 +39,18 @@ public class EstimateController {
     private final UserProfilesService userProfilesService;
     private final CurrentUserProvider currentUserProvider;
 
-    public EstimateController(UserService userService, BoardService boardService, UserProfilesService userProfilesService, CurrentUserProvider currentUserProvider) {
+    private final SseHub sseHub;
+    private final RedisEventBus eventBus;
+    private final RedisRoundStateService redisState;
+
+    public EstimateController(UserService userService, BoardService boardService, UserProfilesService userProfilesService, CurrentUserProvider currentUserProvider, SseHub sseHub, RedisEventBus eventBus, RedisRoundStateService redisState) {
         this.userService = userService;
         this.boardService = boardService;
         this.userProfilesService = userProfilesService;
         this.currentUserProvider = currentUserProvider;
+        this.sseHub = sseHub;
+        this.eventBus = eventBus;
+        this.redisState = redisState;
     }
 
     // Allowed Fibonacci values
@@ -49,7 +59,7 @@ public class EstimateController {
     // In-memory state per board
     private static final Map<UUID, RoundState> STATES = new ConcurrentHashMap<>();
     private static final Map<UUID, List<RoundSnapshot>> HISTORY = new ConcurrentHashMap<>();
-    private static final Map<UUID, ConcurrentHashMap<UUID, SseEmitter>> EMITTERS = new ConcurrentHashMap<>();
+    private static final Map<UUID, ConcurrentHashMap<UUID, SseEmitter>> EMITTERS = new ConcurrentHashMap<>(); // deprecated: kept for backward compatibility until full Redis state migration
 
     // --- Models ---
     public record TaskDto(String key, String title, String link, String description) {
@@ -108,7 +118,7 @@ public class EstimateController {
         ResponseEntity<?> access = checkBoardAccess(id, uo.get());
         if (access.getStatusCode().isError()) return access;
         Board board = (Board) access.getBody();
-        RoundState s = stateForBoard(id);
+        RoundState s = redisState.getState(id);
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("status", s.status.name());
         resp.put("task", s.task);
@@ -129,11 +139,12 @@ public class EstimateController {
         User user = uo.get();
         Optional<Board> b = boardService.findById(id);
         if (b.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Board not found"));
-        RoundState s = stateForBoard(id);
+        RoundState s = redisState.getState(id);
         s.lastSeen.put(user.getId(), Instant.now());
+        redisState.saveState(id, s);
         // Emit event
         log.info("User joined: boardId={}, userId={}", id, user.getId());
-        emit(id, "USER_JOINED", Map.of("userId", user.getId(), "name", user.getEmail()));
+        eventBus.publish(id, "USER_JOINED", Map.of("userId", user.getId(), "name", user.getEmail()));
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
@@ -145,7 +156,7 @@ public class EstimateController {
         User user = uo.get();
         Optional<Board> b = boardService.findById(id);
         if (b.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Board not found"));
-        RoundState s = stateForBoard(id);
+        RoundState s = redisState.getState(id);
         if (s.status == RoundStatus.revealed)
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(error("REVEALED", "Voting closed"));
         if (!FIBONACCI.contains(dto.value()))
@@ -153,15 +164,17 @@ public class EstimateController {
         // Idempotent by userId
         s.votes.put(user.getId(), dto.value());
         s.lastSeen.put(user.getId(), Instant.now());
+        redisState.saveState(id, s);
         log.info("Vote cast: boardId={}, userId={}", id, user.getId());
-        emit(id, "VOTE_CAST", Map.of("userId", user.getId(), "masked", true));
+        eventBus.publish(id, "VOTE_CAST", Map.of("userId", user.getId(), "masked", true));
         // auto-reveal if enabled and all online participants voted
         if (s.autoReveal) {
             boolean allVoted = participants(b.get(), s).stream().filter(p -> p.online).allMatch(p -> s.votes.containsKey(p.userId));
             if (allVoted && !s.votes.isEmpty()) {
                 doReveal(b.get(), s);
+                redisState.saveState(id, s);
                 log.info("Auto reveal triggered: boardId={}, votes={} ", id, s.votes.size());
-                emit(id, "REVEALED", buildRevealPayload(b.get(), s));
+                eventBus.publish(id, "REVEALED", buildRevealPayload(b.get(), s));
             }
         }
         return ResponseEntity.ok(Map.of("ok", true));
@@ -177,59 +190,31 @@ public class EstimateController {
         if (b.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Board not found"));
         if (!isFacilitator(b.get(), user))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error("FORBIDDEN", "Only facilitator can reveal"));
-        RoundState s = stateForBoard(id);
+        RoundState s = redisState.getState(id);
         if (s.status == RoundStatus.revealed)
             return ResponseEntity.status(HttpStatus.CONFLICT).body(error("ALREADY_REVEALED", "Already revealed"));
         doReveal(b.get(), s);
+        redisState.saveState(id, s);
         log.info("Revealed manually: boardId={}, byUserId={}, votes={}", id, user.getId(), s.votes.size());
-        emit(id, "REVEALED", buildRevealPayload(b.get(), s));
+        eventBus.publish(id, "REVEALED", buildRevealPayload(b.get(), s));
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
     @GetMapping(path = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter events(HttpServletRequest request, @PathVariable UUID id) {
         Optional<User> uo = currentUserProvider.getCurrentUser();
-        if (uo.isEmpty()) return null;
+        if (uo.isEmpty()) {
+            // Return 401 as per requirements
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing or invalid token");
+        }
 
         long timeoutMs = 120L * 60L * 1000L;
-        SseEmitter emitter = new SseEmitter(timeoutMs);
-        // Remove previous emitter for same user on resubscribe to avoid leaks
         UUID userId = uo.get().getId();
-        ConcurrentHashMap<UUID, SseEmitter> map = EMITTERS.computeIfAbsent(id, k -> new ConcurrentHashMap<>());
-        SseEmitter prev = map.put(userId, emitter);
-        if (prev != null) {
-            try {
-                prev.complete();
-            } catch (Exception ignored) {
-            }
-        }
-        log.info("SSE subscribed: boardId={}, userId={}, totalSubscribers={}", id, userId, map.size());
-        Runnable remove = () -> {
-            SseEmitter current = map.get(userId);
-            if (current == emitter) {
-                map.remove(userId);
-            }
-        };
-        emitter.onCompletion(() -> {
-            remove.run();
-            log.info("SSE completed: boardId={}, userId={}", id, userId);
-        });
-        emitter.onTimeout(() -> {
-            remove.run();
-            log.info("SSE timeout: boardId={}, userId={}", id, userId);
-        });
-        emitter.onError(t -> {
-            remove.run();
-            log.warn("SSE error: boardId={}, userId={}, error={}", id, userId, t.getMessage());
-        });
+        SseEmitter emitter = sseHub.register(id, userId, timeoutMs);
         try {
             emitter.send(SseEmitter.event().name("CONNECTED").data(Map.of("time", Instant.now().toString())));
         } catch (IOException | IllegalStateException ex) {
-            try {
-                emitter.completeWithError(ex);
-            } catch (Exception ignored) {
-            }
-            remove.run();
+            sseHub.close(id, userId);
         }
         return emitter;
     }
@@ -248,22 +233,19 @@ public class EstimateController {
         if (b.get().getOwner().getId().equals(userId)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error("BAD_REQUEST", "Cannot remove facilitator"));
         }
-        RoundState s = stateForBoard(id);
+        RoundState s = redisState.getState(id);
         boolean changed = false;
         if (s.votes.remove(userId) != null) changed = true;
         if (s.lastSeen.remove(userId) != null) changed = true;
+        if (changed) redisState.saveState(id, s);
         // Also drop SSE emitter for that user if present (they can reconnect later)
         try {
-            ConcurrentHashMap<UUID, SseEmitter> map = EMITTERS.computeIfAbsent(id, k -> new ConcurrentHashMap<>());
-            SseEmitter em = map.remove(userId);
-            if (em != null) {
-                try { em.complete(); } catch (Exception ignored) {}
-            }
+            sseHub.close(id, userId);
         } catch (Exception ignored) {}
         if (changed) {
             log.info("Participant removed from session: boardId={}, removedUserId={}, byUserId={}", id, userId, requester.getId());
         }
-        emit(id, "USER_REMOVED", Map.of("userId", userId));
+        eventBus.publish(id, "USER_REMOVED", Map.of("userId", userId));
         return ResponseEntity.noContent().build();
     }
 
@@ -277,15 +259,16 @@ public class EstimateController {
         if (b.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Board not found"));
         if (!isFacilitator(b.get(), user))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error("FORBIDDEN", "Only facilitator can start new round"));
-        RoundState s = stateForBoard(id);
+        RoundState s = redisState.getState(id);
         // Start new round with optional task
         s.task = new TaskDto(dto.taskId(), dto.title(), dto.link(), dto.description());
         s.votes.clear();
         s.status = RoundStatus.voting;
         s.summary = null;
         s.startedAt = Instant.now();
+        redisState.saveState(id, s);
         log.info("Round started: boardId={}, byUserId={}, taskKey={}", id, user.getId(), s.task != null ? s.task.key() : null);
-        emit(id, "ROUND_STARTED", Map.of("task", s.task));
+        eventBus.publish(id, "ROUND_STARTED", Map.of("task", s.task));
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
@@ -296,12 +279,9 @@ public class EstimateController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHORIZED", "Missing or invalid token"));
         Optional<Board> b = boardService.findById(id);
         if (b.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Board not found"));
-        List<RoundSnapshot> items = HISTORY.getOrDefault(id, List.of());
-        if (items.size() > limit) {
-            items = new ArrayList<>(items.subList(0, limit));
-        }
-        log.debug("History fetched: boardId={}, returned={}, total={} ", id, items.size(), HISTORY.getOrDefault(id, List.of()).size());
-        return ResponseEntity.ok(items);
+        List<Map<String, Object>> history = redisState.getHistory(id, limit);
+        log.debug("History fetched: boardId={}, returned={}", id, history.size());
+        return ResponseEntity.ok(history);
     }
 
 
@@ -309,42 +289,9 @@ public class EstimateController {
         return board.getOwner().getId().equals(user.getId());
     }
 
-    private RoundState stateForBoard(UUID boardId) {
-        return STATES.computeIfAbsent(boardId, id -> {
-            RoundState s = new RoundState();
-            s.boardId = id;
-            s.status = RoundStatus.voting;
-            s.task = null;
-            s.autoReveal = true;
-            s.startedAt = Instant.now();
-            return s;
-        });
-    }
+    private RoundState stateForBoard(UUID boardId) { return redisState.getState(boardId); }
 
-    private void emit(UUID boardId, String eventName, Object data) {
-        ConcurrentHashMap<UUID, SseEmitter> map = EMITTERS.computeIfAbsent(boardId, k -> new ConcurrentHashMap<>());
-        List<UUID> deadUsers = new ArrayList<>();
-        for (Map.Entry<UUID, SseEmitter> entry : map.entrySet()) {
-            UUID userId = entry.getKey();
-            SseEmitter emitter = entry.getValue();
-            try {
-                SseEmitter.SseEventBuilder builder = SseEmitter.event()
-                        .name(eventName)
-                        .data(data);
-                emitter.send(builder);
-            } catch (Exception ex) {
-                deadUsers.add(userId);
-                try {
-                    emitter.completeWithError(ex);
-                } catch (Exception ignored) {
-                    log.warn("Failed to complete SSE error for user {}: {}", userId, ex.getMessage());
-                }
-            }
-        }
-        for (UUID uid : deadUsers) {
-            map.remove(uid);
-        }
-    }
+    private void emit(UUID boardId, String eventName, Object data) { eventBus.publish(boardId, eventName, data); }
 
     private static Map<String, String> error(String code, String message) {
         return Map.of("error", code, "message", message);
@@ -455,7 +402,7 @@ public class EstimateController {
         if (b.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND", "Board not found"));
         if (!isFacilitator(b.get(), user))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error("FORBIDDEN", "Only facilitator can reset"));
-        RoundState s = stateForBoard(id);
+        RoundState s = redisState.getState(id);
         if (s.status == RoundStatus.voting && s.votes.isEmpty()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(error("ALREADY_RESET", "Nothing to reset"));
         }
@@ -466,14 +413,16 @@ public class EstimateController {
         snap.endedAt = Instant.now();
         snap.votes = new HashMap<>(s.votes);
         snap.summary = s.summary;
-        HISTORY.computeIfAbsent(id, k -> new ArrayList<>()).addFirst(snap);
+        // persist snapshot to Redis history
+        redisState.addHistory(id, snap);
         // Reset
         s.votes.clear();
         s.status = RoundStatus.voting;
         s.summary = null;
         s.startedAt = Instant.now();
-        log.info("Round reset: boardId={}, byUserId={}, historySize={}", id, user.getId(), HISTORY.getOrDefault(id, List.of()).size());
-        emit(id, "RESET", Map.of("status", "voting"));
+        redisState.saveState(id, s);
+        log.info("Round reset: boardId={}, byUserId={}", id, user.getId());
+        eventBus.publish(id, "RESET", Map.of("status", "voting"));
         return ResponseEntity.ok(Map.of("ok", true));
     }
 }
