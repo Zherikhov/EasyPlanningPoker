@@ -37,8 +37,32 @@ export default function Estimate() {
     try {
       const res = await fetch(apiUrl(`/api/boards/${id}/state`), { headers: { Authorization: `Bearer ${token}` } })
       if (res.status === 401) return logout()
-      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).message || 'Failed to load state')
-      const data = await res.json()
+      // Safe JSON parsing to avoid "Unexpected end of JSON input"
+      const safeJson = async (response) => {
+        try {
+          if (response.status === 204) return null
+          const ct = response.headers.get('content-type') || ''
+          if (!ct.toLowerCase().includes('application/json')) {
+            const txt = await response.text().catch(() => '')
+            if (!txt) return null
+            try { return JSON.parse(txt) } catch { return null }
+          }
+          const txt = await response.text()
+          if (!txt) return null
+          return JSON.parse(txt)
+        } catch {
+          return null
+        }
+      }
+
+      if (!res.ok) {
+        const j = await safeJson(res)
+        throw new Error((j && j.message) || 'Failed to load state')
+      }
+      const data = await safeJson(res)
+      if (!data || typeof data !== 'object') {
+        throw new Error('Empty response from server')
+      }
       setState(data)
       try {
         const meRaw = localStorage.getItem('currentUser')
@@ -95,7 +119,7 @@ export default function Estimate() {
       })
       if (res.status === 401) return logout()
       if (!res.ok) {
-        const j = await res.json().catch(()=>({}))
+        const j = await (async () => { try { const t = await res.text(); return t? JSON.parse(t): {} } catch { return {} } })()
         setError(j.message || 'Voting error')
       }
     } catch (e) { setError('Network unavailable') }
@@ -106,7 +130,8 @@ export default function Estimate() {
       const res = await fetch(apiUrl(`/api/boards/${id}/reveal`), { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
       if (res.status === 401) return logout()
       if (!res.ok) {
-        setError((await res.json().catch(()=>({}))).message || 'Insufficient permissions')
+        const j = await (async () => { try { const t = await res.text(); return t? JSON.parse(t): {} } catch { return {} } })()
+        setError(j.message || 'Insufficient permissions')
       } else {
         // Ensure immediate UI update: load revealed state so votes show and button toggles to "New round"
         await loadState()
@@ -124,7 +149,8 @@ export default function Estimate() {
       })
       if (res.status === 401) return logout()
       if (!res.ok) {
-        setError((await res.json().catch(()=>({}))).message || 'Insufficient permissions')
+        const j = await (async () => { try { const t = await res.text(); return t? JSON.parse(t): {} } catch { return {} } })()
+        setError(j.message || 'Insufficient permissions')
       } else {
         setSelected('')
         await loadState()
@@ -140,12 +166,12 @@ export default function Estimate() {
       const res = await fetch(apiUrl(`/api/boards/${id}/participants/${uid}`), { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
       if (res.status === 401) return logout()
       if (res.status === 403) {
-        const j = await res.json().catch(()=>({}))
+        const j = await (async () => { try { const t = await res.text(); return t? JSON.parse(t): {} } catch { return {} } })()
         setError(j.message || 'Only facilitator can remove participants')
         return
       }
       if (!res.ok && res.status !== 204) {
-        const j = await res.json().catch(()=>({}))
+        const j = await (async () => { try { const t = await res.text(); return t? JSON.parse(t): {} } catch { return {} } })()
         setError(j.message || 'Failed to remove participant')
         return
       }
