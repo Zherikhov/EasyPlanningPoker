@@ -204,8 +204,21 @@ public class EstimateController {
     public SseEmitter events(HttpServletRequest request, @PathVariable UUID id) {
         Optional<User> uo = currentUserProvider.getCurrentUser();
         if (uo.isEmpty()) {
-            // Return 401 as per requirements
+            // 401 до начала SSE
             throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing or invalid token");
+        }
+
+        // Проверяем доступ к доске ДО создания эмиттера, чтобы не коммитить SSE при ошибках
+        ResponseEntity<?> access = checkBoardAccess(id, uo.get());
+        if (access.getStatusCode().isError()) {
+            HttpStatus status = (HttpStatus) access.getStatusCode();
+            String reason = null;
+            Object body = access.getBody();
+            if (body instanceof Map<?, ?> map) {
+                Object msg = map.get("message");
+                if (msg instanceof String s) reason = s;
+            }
+            throw new org.springframework.web.server.ResponseStatusException(status, reason);
         }
 
         long timeoutMs = 120L * 60L * 1000L;

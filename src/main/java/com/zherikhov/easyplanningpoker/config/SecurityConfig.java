@@ -45,11 +45,23 @@ public class SecurityConfig {
 
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
+                            // Не пытаться писать тело, если ответ уже зафиксирован или это SSE-поток
+                            if (response.isCommitted()) return;
+                            if ("text/event-stream".equalsIgnoreCase(response.getContentType())) {
+                                response.setStatus(401);
+                                return;
+                            }
                             response.setStatus(401);
                             response.setContentType("application/json");
                             response.getWriter().write("{\"error\":\"UNAUTHORIZED\",\"message\":\"Требуется аутентификация\"}");
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            // Не пытаться писать тело, если ответ уже зафиксирован или это SSE-поток
+                            if (response.isCommitted()) return;
+                            if ("text/event-stream".equalsIgnoreCase(response.getContentType())) {
+                                response.setStatus(403);
+                                return;
+                            }
                             response.setStatus(403);
                             response.setContentType("application/json");
                             response.getWriter().write("{\"error\":\"FORBIDDEN\",\"message\":\"Доступ запрещён\"}");
