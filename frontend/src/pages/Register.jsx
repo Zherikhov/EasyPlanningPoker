@@ -1,173 +1,100 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { apiUrl } from '../lib/apiBase'
-import '../styles/signin.css'
-import { getSavedTheme, saveTheme, applyTheme } from '../lib/theme.js'
+
+function CenteredContainer({ children, title }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="w-full max-w-md bg-white shadow rounded-lg p-6">
+        {title && <h1 className="text-2xl font-semibold mb-4 text-center">{title}</h1>}
+        {children}
+      </div>
+    </div>
+  )
+}
 
 export default function Register() {
+  const navigate = useNavigate()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPwd, setShowPwd] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const navigate = useNavigate()
-
-  // theme handling — same as on the Sign In page, but persist via shared util
-  const [theme, setTheme] = useState('light')
-  useEffect(() => {
-    try {
-      const saved = getSavedTheme()
-      setTheme(saved)
-      applyTheme(saved)
-    } catch {}
-  }, [])
-  useEffect(() => {
-    try {
-      saveTheme(theme)
-      applyTheme(theme)
-      localStorage.setItem('signinTheme', theme)
-    } catch {}
-  }, [theme])
 
   const onSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
-
-    // basic client-side validation
-    if (!email || !password || !name) {
-      setError('Please fill in all fields')
-      return
-    }
-    if (password.length < 8) {
-      setError('Minimum password length is 8 characters')
-      return
-    }
-
     setLoading(true)
     try {
-      const res = await fetch(apiUrl('/api/auth/register'), {
+      const res = await fetch('/api/v1/auth/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password,
-          displayName: name.trim(),
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
       })
-
-      const contentType = res.headers.get('content-type') || ''
-      const isJson = contentType.includes('application/json')
-      const data = isJson ? await res.json() : null
-
+      const data = await res.json().catch(()=>({}))
       if (!res.ok) {
-        if (res.status === 409) {
-          setError(data?.message || 'Email is already registered')
-        } else if (res.status === 400) {
-          setError(data?.message || 'Please check the entered data')
-        } else {
-          setError(data?.message || 'Registration error')
-        }
-        return
+        const msg = data?.error?.message || 'Ошибка регистрации'
+        throw new Error(msg)
       }
-
-      // success
-      setSuccess('Registration successful! You can now sign in.')
-      // Optionally redirect to login after short delay
-      setTimeout(() => navigate('/login'), 800)
+      const token = data?.token
+      if (token) {
+        window.localStorage.setItem('pp-token', token)
+      }
+      navigate('/boards')
     } catch (err) {
-      setError('Network error. Please try again.')
+      setError(err.message || 'Ошибка запроса')
     } finally {
       setLoading(false)
     }
   }
-
   return (
-    <div className={`signin ${theme === 'light' ? 'light' : ''}`}>
-      <button
-        type="button"
-        className="toggle"
-        onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-        aria-label="Toggle theme"
-        title="Toggle theme"
-      >
-        <span className="moon">☾</span>
-        <span className="sun">☀</span>
-      </button>
-      <div className="card">
-        <h1>Sign Up</h1>
-        {error && <div className="error-box">{error}</div>}
-        {success && <div className="error-box" style={{color:'#065F46', background:'#D1FAE5', borderColor:'#6EE7B7'}}>{success}</div>}
-        <form onSubmit={onSubmit}>
-          <div className="field">
-            <div className="label">Name</div>
-            <input
-              id="name"
-              type="text"
-              className="input"
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-          <div className="field">
-            <div className="label">Email</div>
-            <input
-              id="email"
-              type="email"
-              className="input"
-              placeholder="name@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-          <div className="field">
-            <div className="label">Password</div>
-            <input
-              id="password"
-              type={showPwd ? 'text' : 'password'}
-              className="input"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-            />
-            <button
-              type="button"
-              className="showbtn"
-              onClick={() => setShowPwd((v) => !v)}
-              aria-label={showPwd ? 'Hide password' : 'Show password'}
-            >
-              {showPwd ? 'Hide' : 'Show'}
-            </button>
-          </div>
-
-          <button className="primary" type="submit" disabled={loading}>
-            {loading ? 'Signing up...' : 'Sign Up'}
-          </button>
-
-          <div className="meta">
-            <div>
-              Already have an account? <Link to="/login">Sign In</Link>
-            </div>
-          </div>
-
-          <div className="sep">or</div>
-          <button className="google" type="button">
-            <img alt="G" src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" />
-            Sign up with Google
-          </button>
-        </form>
-      </div>
-    </div>
+    <CenteredContainer title="Регистрация">
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Имя</label>
+          <input
+            type="text"
+            required
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Иван Иванов"
+            value={name}
+            onChange={(e)=>setName(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Email</label>
+          <input
+            type="email"
+            required
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e)=>setEmail(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Пароль</label>
+          <input
+            type="password"
+            required
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e)=>setPassword(e.target.value)}
+          />
+        </div>
+        {error && <div className="text-red-500 text-sm">{error}</div>}
+        <button
+          type="submit"
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-md py-2 font-medium"
+          disabled={loading}
+        >
+          {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+        </button>
+        <p className="text-center text-sm">
+          Уже есть аккаунт?{' '}
+          <Link to="/login" className="text-indigo-600 hover:underline">Авторизация</Link>
+        </p>
+      </form>
+    </CenteredContainer>
   )
 }

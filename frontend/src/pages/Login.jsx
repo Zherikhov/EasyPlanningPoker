@@ -1,156 +1,293 @@
-import React, { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-
-import { apiUrl } from '../lib/apiBase'
-import '../styles/signin.css'
-import { getSavedTheme, saveTheme, applyTheme } from '../lib/theme.js'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import '../styles/demo-auth.css'
 
 export default function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('login')
   const [showPwd, setShowPwd] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === 'undefined') return 'dark'
+    return window.localStorage.getItem('pp-theme') || 'dark'
+  })
+  const [lang, setLang] = useState(() => {
+    if (typeof window === 'undefined') return 'ru'
+    return window.localStorage.getItem('pp-lang') || 'ru'
+  })
+
+  // form state
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [signupName, setSignupName] = useState('')
+  const [signupEmail, setSignupEmail] = useState('')
+  const [signupPassword, setSignupPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const navigate = useNavigate()
-
-  const [theme, setTheme] = useState('light')
-  useEffect(() => {
-    try {
-      const saved = getSavedTheme()
-      setTheme(saved)
-      applyTheme(saved)
-    } catch {}
-  }, [])
-  useEffect(() => {
-    try {
-      saveTheme(theme)
-      applyTheme(theme)
-      // keep legacy key for signin page styling
-      localStorage.setItem('signinTheme', theme)
-    } catch {}
-  }, [theme])
 
   const onSubmit = async (e) => {
     e.preventDefault()
     setError('')
-
-    if (!email || !password) {
-      setError('Enter email and password')
-      return
-    }
-
     setLoading(true)
     try {
-      const res = await fetch(apiUrl('/api/auth/login'), {
+      const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password, rememberMe }),
+        body: JSON.stringify({ email: loginEmail, password: loginPassword })
       })
-
-      const contentType = res.headers.get('content-type') || ''
-      const isJson = contentType.includes('application/json')
-      const data = isJson ? await res.json() : null
-
+      const data = await res.json().catch(()=>({}))
       if (!res.ok) {
-        if (res.status === 401) {
-          setError(data?.message || 'Invalid email or password')
-        } else {
-          setError(data?.message || 'Authentication error')
-        }
-        return
+        const msg = data?.error?.message || 'Ошибка авторизации'
+        throw new Error(msg)
       }
-
-      // success: save token and redirect
-      const token = data?.accessToken
+      const token = data?.token
       if (token) {
-        try {
-          localStorage.setItem('accessToken', token)
-          localStorage.setItem('expiresIn', String(data?.expiresIn ?? 3600))
-          // optional: store minimal user info
-          if (data?.user) localStorage.setItem('currentUser', JSON.stringify(data.user))
-          // save theme under user-specific key now that we know the user
-          saveTheme(theme)
-        } catch {}
+        window.localStorage.setItem('pp-token', token)
       }
-
       navigate('/boards')
     } catch (err) {
-      setError('Network error. Please try again.')
+      setError(err.message || 'Ошибка запроса')
     } finally {
       setLoading(false)
     }
   }
 
+  const pwdInputType = useMemo(() => (showPwd ? 'text' : 'password'), [showPwd])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('pp-theme', theme)
+    }
+  }, [theme])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('pp-lang', lang)
+    }
+  }, [lang])
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+
   return (
-    <div className={`signin ${theme === 'light' ? 'light' : ''}`}>
-      <button
-        type="button"
-        className="toggle"
-        onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-        aria-label="Toggle theme"
-        title="Toggle theme"
-      >
-        <span className="moon">☾</span>
-        <span className="sun">☀</span>
-      </button>
-      <div className="card">
-        <h1>Sign In</h1>
-        {error && <div className="error-box">{error}</div>}
-        <form onSubmit={onSubmit}>
-          <div className="field">
-            <div className="label">Email Address</div>
-            <input
-              id="email"
-              type="email"
-              className="input"
-              placeholder="name@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-          <div className="field">
-            <div className="label">Password</div>
-            <input
-              id="password"
-              type={showPwd ? 'text' : 'password'}
-              className="input"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-            />
-            <button
-              type="button"
-              className="showbtn"
-              onClick={() => setShowPwd((v) => !v)}
-              aria-label={showPwd ? 'Hide password' : 'Show password'}
+    <div className={`pp-root theme-${theme}`}>
+      <header className="topbar">
+        <div className="topbar__inner">
+          <a className="brand" href="#" onClick={(e)=>e.preventDefault()}>
+            <span className="brand__mark" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="2"/>
+                <path d="M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M12 8v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </span>
+            <span className="brand__text">Planning Poker</span>
+          </a>
+
+          <nav className="nav nav--hidden-on-mobile" aria-label="Top navigation" />
+
+          <div className="topbar__actions">
+            <a className="nav__link" href="#" onClick={(e)=>e.preventDefault()}>Guide</a>
+            <a className="nav__link" href="#" onClick={(e)=>e.preventDefault()}>GitHub</a>
+            <select
+              aria-label="Выбрать язык интерфейса"
+              className="langSelect"
+              value={lang}
+              onChange={(e)=>setLang(e.target.value)}
             >
-              {showPwd ? 'Hide' : 'Show'}
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+              <option value="de">Deutsch</option>
+            </select>
+            <button
+              className="themeToggle"
+              type="button"
+              aria-label="Theme toggle (visual)"
+              aria-pressed={theme === 'light'}
+              title={theme === 'light' ? 'Переключить на тёмную тему' : 'Переключить на светлую тему'}
+              onClick={toggleTheme}
+            >
+              <span className="themeToggle__pill" aria-hidden="true"></span>
             </button>
           </div>
+        </div>
+      </header>
 
-          <button className="primary" type="submit" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
+      <main className="hero">
+        <div className="hero__bg" aria-hidden="true"></div>
 
-          <div className="meta">
-            <a href="#">Forgot password?</a>
-            <div>
-              No account? <Link to="/register">Sign up</Link>
+        <section className="hero__inner">
+          <div className="hero__left">
+            <h1 className="h1">Free Planning Poker App</h1>
+            <p className="lead">Estimate user stories in an Agile/Scrum team collaboratively.</p>
+
+            <p className="desc">
+              Free / Open source Planning Poker Web App to estimate user stories for Agile/Scrum teams.
+              Create a session and invite your team members to estimate user stories efficiently.
+            </p>
+
+            <div className="cta">
+              <a className="btn btn--primary btn--lg" href="#" onClick={(e)=>{e.preventDefault(); navigate('/register')}}>Get Started for Free</a>
             </div>
           </div>
 
-          <div className="sep">or</div>
-          <button className="google" type="button">
-            <img alt="G" src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" />
-            Sign in with Google
-          </button>
-        </form>
-      </div>
+          <div className="hero__right">
+            <div className="authCard" role="region" aria-label="Authorization">
+              <div className="authTabs" role="tablist" aria-label="Auth tabs">
+                <button
+                  className={`authTabs__tab ${activeTab==='login' ? 'is-active' : ''}`}
+                  role="tab"
+                  aria-selected={activeTab==='login'}
+                  onClick={()=>setActiveTab('login')}
+                >
+                  Log In
+                </button>
+                <button
+                  className={`authTabs__tab ${activeTab==='signup' ? 'is-active' : ''}`}
+                  role="tab"
+                  aria-selected={activeTab==='signup'}
+                  onClick={()=>setActiveTab('signup')}
+                >
+                  Sign Up
+                </button>
+              </div>
+              {activeTab === 'login' && (
+                <form className="authForm" action="#" onSubmit={onSubmit}>
+                  <label className="field">
+                    <span className="field__label">Email</span>
+                    <span className="field__control">
+                      <input className="input" type="email" placeholder="Email" autoComplete="email" required value={loginEmail} onChange={(e)=>setLoginEmail(e.target.value)} />
+                      <span className="field__icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <path d="M4 6h16v12H4z" stroke="currentColor" strokeWidth="2" />
+                          <path d="M4 7l8 6 8-6" stroke="currentColor" strokeWidth="2" />
+                        </svg>
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="field">
+                    <span className="field__label">Password</span>
+                    <span className="field__control">
+                      <input id="pwd" className="input" type={pwdInputType} placeholder="Password" autoComplete="current-password" required value={loginPassword} onChange={(e)=>setLoginPassword(e.target.value)} />
+                      <button className="field__iconBtn" type="button" aria-label={showPwd ? 'Hide password' : 'Show password'} onClick={()=>setShowPwd(v=>!v)}>
+                        <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" style={{opacity: showPwd ? 0.7 : 1}}>
+                          <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" stroke="currentColor" strokeWidth="2"/>
+                          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                      </button>
+                    </span>
+                  </label>
+
+                  <label className="check">
+                    <input type="checkbox" />
+                    <span>Remember me</span>
+                  </label>
+
+                  {error && <div className="alert" role="alert" style={{color:'#f87171'}}>{error}</div>}
+                  <button className="btn btn--primary btn--full" type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Log In'}</button>
+
+                  <div className="oauthRow">
+                    <button className="btn btn--oauth btn--full" type="button" onClick={(e)=>e.preventDefault()} aria-label="Continue with Google">
+                      <span className="oauthIcon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <path d="M21.35 11.1H12v2.9h5.35c-.25 1.6-1.8 4.7-5.35 4.7-3.22 0-5.85-2.66-5.85-5.9S8.78 6.9 12 6.9c1.84 0 3.07.78 3.77 1.45l2.57-2.48C16.85 4.45 14.62 3.5 12 3.5 6.98 3.5 2.9 7.58 2.9 12.6S6.98 21.7 12 21.7c6.98 0 8.1-6.1 7.8-10.6z" fill="currentColor"/>
+                        </svg>
+                      </span>
+                      Continue with Google
+                    </button>
+                    <button className="btn btn--oauth btn--full" type="button" onClick={(e)=>e.preventDefault()} aria-label="Continue with Apple">
+                      <span className="oauthIcon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19.67 17.23c-.33.76-.72 1.45-1.19 2.08-.63.85-1.15 1.43-1.55 1.74-.62.57-1.29.86-2.02.88-.52 0-1.15-.15-1.9-.45-.75-.3-1.44-.45-2.07-.45-.66 0-1.37.15-2.12.45-.75.3-1.35.46-1.79.47-.72.03-1.41-.28-2.08-.94-.44-.38-.98-1-1.62-1.87-.69-.95-1.26-2.06-1.69-3.32-.47-1.38-.71-2.72-.71-4.03 0-1.48.32-2.77.96-3.86.5-.86 1.16-1.55 1.99-2.07.83-.52 1.74-.79 2.72-.81.53 0 1.23.16 2.09.49.86.33 1.42.5 1.68.5.18 0 .78-.2 1.8-.59.97-.36 1.8-.51 2.49-.47 1.84.15 3.23.88 4.17 2.19-1.66 1.01-2.48 2.43-2.47 4.27.01 1.42.53 2.6 1.54 3.54.46.43.98.76 1.55.98-.12.36-.25.71-.4 1.04z"/>
+                        </svg>
+                      </span>
+                      Continue with Apple
+                    </button>
+                  </div>
+
+                  <button className="link" type="button" onClick={()=>navigate('/register')}>Forgot password?</button>
+                </form>
+              )}
+
+              {activeTab === 'signup' && (
+                <form className="authForm" action="#" onSubmit={async (e)=>{
+                  e.preventDefault();
+                  setError('');
+                  setLoading(true);
+                  try {
+                    const res = await fetch('/api/v1/auth/register', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ name: signupName, email: signupEmail, password: signupPassword })
+                    })
+                    const data = await res.json().catch(()=>({}))
+                    if (!res.ok) {
+                      const msg = data?.error?.message || 'Ошибка регистрации'
+                      throw new Error(msg)
+                    }
+                    const token = data?.token
+                    if (token) {
+                      window.localStorage.setItem('pp-token', token)
+                    }
+                    navigate('/boards')
+                  } catch (err) {
+                    setError(err.message || 'Ошибка запроса')
+                  } finally {
+                    setLoading(false)
+                  }
+                }}>
+                  <label className="field">
+                    <span className="field__label">Name</span>
+                    <span className="field__control">
+                      <input className="input" type="text" placeholder="Your name" autoComplete="name" required value={signupName} onChange={(e)=>setSignupName(e.target.value)} />
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Email</span>
+                    <span className="field__control">
+                      <input className="input" type="email" placeholder="Email" autoComplete="email" required value={signupEmail} onChange={(e)=>setSignupEmail(e.target.value)} />
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Password</span>
+                    <span className="field__control">
+                      <input className="input" type="password" placeholder="Password" autoComplete="new-password" required value={signupPassword} onChange={(e)=>setSignupPassword(e.target.value)} />
+                    </span>
+                  </label>
+
+                  {error && <div className="alert" role="alert" style={{color:'#f87171'}}>{error}</div>}
+                  <button className="btn btn--primary btn--full" type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign Up'}</button>
+
+                  <div className="oauthRow">
+                    <button className="btn btn--oauth btn--full" type="button" onClick={(e)=>e.preventDefault()} aria-label="Continue with Google">
+                      <span className="oauthIcon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <path d="M21.35 11.1H12v2.9h5.35c-.25 1.6-1.8 4.7-5.35 4.7-3.22 0-5.85-2.66-5.85-5.9S8.78 6.9 12 6.9c1.84 0 3.07.78 3.77 1.45l2.57-2.48C16.85 4.45 14.62 3.5 12 3.5 6.98 3.5 2.9 7.58 2.9 12.6S6.98 21.7 12 21.7c6.98 0 8.1-6.1 7.8-10.6z" fill="currentColor"/>
+                        </svg>
+                      </span>
+                      Continue with Google
+                    </button>
+                    <button className="btn btn--oauth btn--full" type="button" onClick={(e)=>e.preventDefault()} aria-label="Continue with Apple">
+                      <span className="oauthIcon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19.67 17.23c-.33.76-.72 1.45-1.19 2.08-.63.85-1.15 1.43-1.55 1.74-.62.57-1.29.86-2.02.88-.52 0-1.15-.15-1.9-.45-.75-.3-1.44-.45-2.07-.45-.66 0-1.37.15-2.12.45-.75.3-1.35.46-1.79.47-.72.03-1.41-.28-2.08-.94-.44-.38-.98-1-1.62-1.87-.69-.95-1.26-2.06-1.69-3.32-.47-1.38-.71-2.72-.71-4.03 0-1.48.32-2.77.96-3.86.5-.86 1.16-1.55 1.99-2.07.83-.52 1.74-.79 2.72-.81.53 0 1.23.16 2.09.49.86.33 1.42.5 1.68.5.18 0 .78-.2 1.8-.59.97-.36 1.8-.51 2.49-.47 1.84.15 3.23.88 4.17 2.19-1.66 1.01-2.48 2.43-2.47 4.27.01 1.42.53 2.6 1.54 3.54.46.43.98.76 1.55.98-.12.36-.25.71-.4 1.04z"/>
+                        </svg>
+                      </span>
+                      Continue with Apple
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {/*<div className="heroArt" aria-hidden="true">*/}
+            {/*  <div className="heroArt__panel"></div>*/}
+            {/*  <div className="heroArt__bubble heroArt__bubble--1"></div>*/}
+            {/*  <div className="heroArt__bubble heroArt__bubble--2"></div>*/}
+            {/*  <div className="heroArt__bubble heroArt__bubble--3"></div>*/}
+            {/*</div>*/}
+          </div>
+        </section>
+      </main>
     </div>
   )
 }

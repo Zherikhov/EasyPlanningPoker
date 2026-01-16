@@ -1,27 +1,22 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// для dev-прокси можно переопределить адрес бекенда через переменную окружения
-const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:3344'
-// const apiTarget = 'https://easysprintpoker.com:3344/api/auth/'
-
+// https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [react()],
-    // главное для сборки под Spring Boot static/
-    base: '/',
-    server: {
-        port: 5173,
-        proxy: {
-            '/api': {
-                target: apiTarget,
-                changeOrigin: true,
-                secure: false,
-            },
-        },
-    },
-    build: {
-        outDir: 'dist',
-        emptyOutDir: true,
-        sourcemap: false,
-    },
+  plugins: [react()],
+  server: {
+    port: 5173,
+    proxy: {
+      // Прокси для API, чтобы запросы с фронта попадали на Spring Boot в dev-режиме
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+        // Никакого переписывания не требуется: путь /api/v1/... должен дойти как есть
+      }
+    }
+  },
+  build: {
+    outDir: 'dist'
+  }
 })
