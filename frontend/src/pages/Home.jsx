@@ -41,12 +41,7 @@ function LoginCard() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-zinc-400">
-          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" className="h-4 w-4 rounded border-zinc-600 bg-zinc-800" />
-            <span>Remember me</span>
-          </label>
-        </div>
+        {/* Removed extra checkbox */}
 
         <button type="submit" className="mt-2 w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-md py-2 font-medium shadow">
           Log In

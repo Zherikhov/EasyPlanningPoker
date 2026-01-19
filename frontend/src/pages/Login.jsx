@@ -228,10 +228,6 @@ export default function Login() {
                     </span>
                   </label>
 
-                  <label className="check">
-                    <input type="checkbox" />
-                    <span>Remember me</span>
-                  </label>
 
                   {error && <div className="alert" role="alert" style={{color:'#f87171'}}>{error}</div>}
                   <button className="btn btn--primary btn--full" type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Log In'}</button>
@@ -255,7 +251,7 @@ export default function Login() {
                     </button>
                   </div>
 
-                  <button className="link" type="button" onClick={()=>navigate('/register')}>Forgot password?</button>
+                  <button className="link" type="button" onClick={()=>navigate('/register')}>Forgot password? (in the future)</button>
                 </form>
               )}
 

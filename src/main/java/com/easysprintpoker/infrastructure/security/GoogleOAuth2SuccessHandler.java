@@ -38,7 +38,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
     private final long refreshTtlDays;
     private final String refreshCookieName;
     private final boolean cookieSecure;
-    private final String frontendBaseUrl;
+    private final String configuredFrontendBaseUrl;
 
     public GoogleOAuth2SuccessHandler(UserJpaRepository users,
                                       AuthIdentityJpaRepository identities,
@@ -57,7 +57,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         this.refreshTtlDays = refreshTtlDays;
         this.refreshCookieName = refreshCookieName;
         this.cookieSecure = cookieSecure;
-        this.frontendBaseUrl = trimTrailingSlash(frontendBaseUrl);
+        this.configuredFrontendBaseUrl = trimTrailingSlash(frontendBaseUrl);
     }
 
     @Override
@@ -145,9 +145,77 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         response.addCookie(cookie);
         response.addHeader("Set-Cookie", refreshCookieName + "=" + refresh + "; Path=/; HttpOnly; Max-Age=" + cookie.getMaxAge() + "; SameSite=Lax" + (cookieSecure ? "; Secure" : ""));
 
-        // redirect back to SPA login handler (absolute URL to avoid hitting backend /login and getting 401)
-        String redirect = frontendBaseUrl + "/login?token=" + access;
+        // redirect back to SPA login handler (absolute URL)
+        String baseUrl = resolveFrontendBaseUrl(request);
+        String redirect = baseUrl + "/login?token=" + access;
         response.sendRedirect(redirect);
+    }
+
+    /**
+     * Пытается определить базовый URL фронтенда для редиректа после OAuth2:
+     * 1) Origin или Referer заголовок (приоритетно — соответствует домену, где открыта SPA).
+     * 2) X-Forwarded-Proto/Host (если есть прокси/ингресс перед приложением).
+     * 3) scheme + serverName (+port, если нестандартный).
+     * 4) Fallback на app.frontend-url из конфигурации.
+     */
+    private String resolveFrontendBaseUrl(HttpServletRequest request) {
+        // 1) Origin/Referer
+        String origin = safeOrigin(request.getHeader("Origin"));
+        if (origin == null) origin = safeOrigin(request.getHeader("Referer"));
+        if (origin != null) return trimTrailingSlash(origin);
+
+        // 2) X-Forwarded-*
+        String proto = headerOrNull(request, "X-Forwarded-Proto");
+        String host = headerOrNull(request, "X-Forwarded-Host");
+        String port = headerOrNull(request, "X-Forwarded-Port");
+        if (proto != null && host != null) {
+            String h = host;
+            if (port != null && !host.contains(":")) {
+                if (!("http".equalsIgnoreCase(proto) && "80".equals(port)) &&
+                    !("https".equalsIgnoreCase(proto) && "443".equals(port))) {
+                    h = host + ":" + port;
+                }
+            }
+            return proto.toLowerCase() + "://" + trimTrailingSlash(h);
+        }
+
+        // 3) request scheme + host
+        String scheme = request.getScheme();
+        String serverName = request.getServerName();
+        int serverPort = request.getServerPort();
+        if (scheme != null && serverName != null) {
+            boolean isDefaultPort = ("http".equalsIgnoreCase(scheme) && serverPort == 80)
+                    || ("https".equalsIgnoreCase(scheme) && serverPort == 443)
+                    || serverPort <= 0;
+            String hostPort = serverName + (isDefaultPort ? "" : ":" + serverPort);
+            return scheme.toLowerCase() + "://" + hostPort;
+        }
+
+        // 4) fallback to configured value
+        return configuredFrontendBaseUrl;
+    }
+
+    private static String headerOrNull(HttpServletRequest req, String name) {
+        String v = req.getHeader(name);
+        return (v == null || v.isBlank()) ? null : v.trim();
+    }
+
+    private static String safeOrigin(String url) {
+        if (url == null || url.isBlank()) return null;
+        try {
+            java.net.URI u = java.net.URI.create(url.trim());
+            String scheme = u.getScheme();
+            String host = u.getHost();
+            int port = u.getPort();
+            if (scheme == null || host == null) return null;
+            boolean isDefault = ("http".equalsIgnoreCase(scheme) && port == 80)
+                    || ("https".equalsIgnoreCase(scheme) && port == 443)
+                    || (port == -1);
+            String hostPort = host + (isDefault ? "" : ":" + port);
+            return scheme + "://" + hostPort;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private static Map<String, Object> extractAttributes(Authentication authentication) {
