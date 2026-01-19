@@ -48,7 +48,9 @@ public class SecurityConfig {
                                 "/image/**",
                                 "/static/**",
                                 "/login",
-                                "/login/**"
+                                "/login/**",
+                                "/register",
+                                "/register/**"
                         ).permitAll()
 
                         // Остальные запросы защищены
