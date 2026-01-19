@@ -73,6 +73,7 @@ public class UsersController {
             String avatarUrl,
             String defaultLocale,
             String timezone,
+            OffsetDateTime createdAt,
             OffsetDateTime lastLoginAt,
             String status
     ) {
@@ -84,6 +85,7 @@ public class UsersController {
                     u.getAvatarUrl(),
                     u.getDefaultLocale(),
                     u.getTimezone(),
+                    u.getCreatedAt(),
                     u.getLastLoginAt(),
                     u.getStatus().name()
             );

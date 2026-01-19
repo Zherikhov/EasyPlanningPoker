@@ -1,0 +1,56 @@
+
+:root{
+  /* vertical gradient colors */
+  --top:#050814;
+  --bottom:#0f1f46;
+
+  /* glow */
+  --mid-glow:rgba(80,120,255,.22);
+
+  /* stars */
+  --star-strong:rgba(255,255,255,.35);
+  --star-soft:rgba(255,255,255,.22);
+}
+
+html,body{
+  height:100%;
+  margin:0;
+}
+
+body{
+  background:#050814;
+  overflow:hidden;
+}
+
+/* Background only, no text, no UI */
+.bg{
+  position:fixed;
+  inset:0;
+  z-index:-1;
+
+  /* vertical gradient + subtle center glow */
+  background:
+    radial-gradient(800px 520px at 55% 58%, var(--mid-glow), transparent 65%),
+    linear-gradient(180deg, var(--top), var(--bottom));
+
+  filter:saturate(1.05);
+}
+
+/* stars layer */
+.bg::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 12% 18%, var(--star-strong) 0 1.2px, transparent 2px) 0 0/220px 220px,
+    radial-gradient(circle at 68% 26%, var(--star-soft) 0 1px, transparent 2px) 0 0/260px 260px,
+    radial-gradient(circle at 35% 72%, var(--star-strong) 0 1.3px, transparent 2.2px) 0 0/300px 300px,
+    radial-gradient(circle at 82% 64%, var(--star-soft) 0 1px, transparent 2px) 0 0/320px 320px,
+    radial-gradient(circle at 48% 48%, rgba(255,255,255,.18) 0 1px, transparent 2px) 0 0/180px 180px;
+  opacity:.85;
+}
+
+/* very light parallax support (optional) */
+.bg{
+  transform:translate3d(var(--tx,0),var(--ty,0),0);
+}

@@ -24,6 +24,17 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Если пришли после OAuth редиректа: вытащить ?token= и сохранить
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    if (token) {
+      try { window.localStorage.setItem('pp-token', token) } catch (_) {}
+      // очищаем query и идем на boards
+      navigate('/boards', { replace: true })
+    }
+  }, [navigate])
+
   const onSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -186,7 +197,7 @@ export default function Login() {
                   <button className="btn btn--primary btn--full" type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Log In'}</button>
 
                   <div className="oauthRow">
-                    <button className="btn btn--oauth btn--full" type="button" onClick={(e)=>e.preventDefault()} aria-label="Continue with Google">
+                    <button className="btn btn--oauth btn--full" type="button" onClick={()=>{ window.location.href = '/oauth2/authorization/google' }} aria-label="Continue with Google">
                       <span className="oauthIcon" aria-hidden="true">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                           <path d="M21.35 11.1H12v2.9h5.35c-.25 1.6-1.8 4.7-5.35 4.7-3.22 0-5.85-2.66-5.85-5.9S8.78 6.9 12 6.9c1.84 0 3.07.78 3.77 1.45l2.57-2.48C16.85 4.45 14.62 3.5 12 3.5 6.98 3.5 2.9 7.58 2.9 12.6S6.98 21.7 12 21.7c6.98 0 8.1-6.1 7.8-10.6z" fill="currentColor"/>
@@ -200,7 +211,7 @@ export default function Login() {
                           <path d="M19.67 17.23c-.33.76-.72 1.45-1.19 2.08-.63.85-1.15 1.43-1.55 1.74-.62.57-1.29.86-2.02.88-.52 0-1.15-.15-1.9-.45-.75-.3-1.44-.45-2.07-.45-.66 0-1.37.15-2.12.45-.75.3-1.35.46-1.79.47-.72.03-1.41-.28-2.08-.94-.44-.38-.98-1-1.62-1.87-.69-.95-1.26-2.06-1.69-3.32-.47-1.38-.71-2.72-.71-4.03 0-1.48.32-2.77.96-3.86.5-.86 1.16-1.55 1.99-2.07.83-.52 1.74-.79 2.72-.81.53 0 1.23.16 2.09.49.86.33 1.42.5 1.68.5.18 0 .78-.2 1.8-.59.97-.36 1.8-.51 2.49-.47 1.84.15 3.23.88 4.17 2.19-1.66 1.01-2.48 2.43-2.47 4.27.01 1.42.53 2.6 1.54 3.54.46.43.98.76 1.55.98-.12.36-.25.71-.4 1.04z"/>
                         </svg>
                       </span>
-                      Continue with Apple
+                      Continue with Apple (in the future)
                     </button>
                   </div>
 
@@ -258,7 +269,7 @@ export default function Login() {
                   <button className="btn btn--primary btn--full" type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign Up'}</button>
 
                   <div className="oauthRow">
-                    <button className="btn btn--oauth btn--full" type="button" onClick={(e)=>e.preventDefault()} aria-label="Continue with Google">
+                    <button className="btn btn--oauth btn--full" type="button" onClick={()=>{ window.location.href = '/oauth2/authorization/google' }} aria-label="Continue with Google">
                       <span className="oauthIcon" aria-hidden="true">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                           <path d="M21.35 11.1H12v2.9h5.35c-.25 1.6-1.8 4.7-5.35 4.7-3.22 0-5.85-2.66-5.85-5.9S8.78 6.9 12 6.9c1.84 0 3.07.78 3.77 1.45l2.57-2.48C16.85 4.45 14.62 3.5 12 3.5 6.98 3.5 2.9 7.58 2.9 12.6S6.98 21.7 12 21.7c6.98 0 8.1-6.1 7.8-10.6z" fill="currentColor"/>

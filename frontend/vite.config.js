@@ -13,6 +13,17 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         // Никакого переписывания не требуется: путь /api/v1/... должен дойти как есть
+      },
+      // Прокси для OAuth2 маршрутов, чтобы редиректы обрабатывались бекендом, а не SPA-роутером
+      '/oauth2': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/login/oauth2': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
       }
     }
   },

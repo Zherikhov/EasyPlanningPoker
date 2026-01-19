@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 function CenteredContainer({ children, title }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="w-full max-w-md bg-white shadow rounded-lg p-6">
         {title && <h1 className="text-2xl font-semibold mb-4 text-center">{title}</h1>}
         {children}
