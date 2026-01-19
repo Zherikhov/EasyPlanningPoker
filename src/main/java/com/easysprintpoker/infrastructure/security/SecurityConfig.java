@@ -46,7 +46,9 @@ public class SecurityConfig {
                                 "/robots.txt",
                                 "/assets/**",
                                 "/image/**",
-                                "/static/**"
+                                "/static/**",
+                                "/login",
+                                "/login/**"
                         ).permitAll()
 
                         // Остальные запросы защищены
