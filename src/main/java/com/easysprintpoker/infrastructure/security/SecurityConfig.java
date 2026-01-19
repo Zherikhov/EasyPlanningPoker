@@ -33,8 +33,23 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(reg -> reg
+                        // Публичные API-эндпойнты аутентификации
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
+                        // Публичные ресурсы SPA (статические файлы Vite build)
+                        .requestMatchers(
+                                "/", 
+                                "/index.html",
+                                "/favicon.ico",
+                                "/manifest*",
+                                "/robots.txt",
+                                "/assets/**",
+                                "/image/**",
+                                "/static/**"
+                        ).permitAll()
+
+                        // Остальные запросы защищены
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth.successHandler(oAuth2SuccessHandler))
