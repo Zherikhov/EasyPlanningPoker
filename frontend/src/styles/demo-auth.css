@@ -155,11 +155,102 @@ button{font:inherit}
   background: rgba(148,163,184,.10);
   color:rgba(229,231,235,.92);
   transition: background .18s ease, border-color .18s ease, color .18s ease;
+  /* Сбрасываем нативный вид, чтобы визуально соответствовать сайту */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 .pp-root.theme-light .langSelect{
   border:1px solid rgba(2,6,23,.10);
   background:#fff;
   color:#0F172A;
+}
+
+/* Стили выпадающих значений (поддержка у браузеров частичная, но в Chromium/Firefox работает)
+   Делает фон тёмным в тёмной теме и светлым в светлой. */
+.pp-root.theme-dark .langSelect option{
+  background: var(--panel);
+  color: var(--text);
+  /* Попытка закругления краёв у меню опций (может игнорироваться браузером) */
+  border-radius: 10px;
+}
+.pp-root.theme-light .langSelect option{
+  background: #ffffff;
+  color: #0F172A;
+  border-radius: 10px;
+}
+
+/* Улучшение контраста при наведении/фокусе на селекте */
+.langSelect:focus{
+  outline: none;
+  border-color: rgba(37,99,235,.55);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.25);
+}
+
+/* Кастомный дропдаун языка (для гарантированной стилизации выпадающего меню) */
+.langDropdown{position:relative}
+.langDropdown__button{
+  height:32px;
+  padding:0 10px 0 12px;
+  border-radius:10px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(148,163,184,.10);
+  color:rgba(229,231,235,.92);
+  display:inline-flex; align-items:center; gap:6px;
+  cursor:pointer;
+  transition: background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.langDropdown__button:focus{
+  outline:none;
+  border-color: rgba(37,99,235,.55);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.25);
+}
+.langDropdown__chevron{margin-left:6px; opacity:.8; font-size:12px}
+
+.langDropdown__menu{
+  position:absolute; top:calc(100% + 6px); right:0;
+  min-width: 160px;
+  background: var(--panel);
+  color: var(--text);
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:12px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.45);
+  padding:6px;
+  z-index: 50;
+}
+.langDropdown__option{
+  list-style:none;
+  padding:8px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  user-select:none;
+}
+.langDropdown__option:hover,
+.langDropdown__option:focus{
+  background: rgba(148,163,184,.12);
+  outline:none;
+}
+.langDropdown__option.is-selected{
+  background: rgba(37,99,235,.18);
+}
+
+.pp-root.theme-light .langDropdown__button{
+  border:1px solid rgba(2,6,23,.10);
+  background:#fff;
+  color:#0F172A;
+}
+.pp-root.theme-light .langDropdown__menu{
+  background:#ffffff;
+  color:#0F172A;
+  border:1px solid rgba(2,6,23,.10);
+  box-shadow: 0 14px 40px rgba(2,6,23,.12);
+}
+.pp-root.theme-light .langDropdown__option:hover,
+.pp-root.theme-light .langDropdown__option:focus{
+  background: rgba(2,6,23,.06);
+}
+.pp-root.theme-light .langDropdown__option.is-selected{
+  background: rgba(37,99,235,.16);
 }
 
 /* Hero */
@@ -291,7 +382,7 @@ button{font:inherit}
 
 .field__icon{
   position:absolute;
-  right:12px;
+  right:14px;
   top:50%;
   transform:translateY(-50%);
   color:rgba(148,163,184,.85);
@@ -300,7 +391,7 @@ button{font:inherit}
 .pp-root.theme-light .field__icon{color:#94A3B8}
 .field__iconBtn{
   position:absolute;
-  right:8px;
+  right:0px;
   top:50%;
   transform:translateY(-50%);
   width:32px;

@@ -1,16 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-
-function CenteredContainer({ children, title }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-md bg-white shadow rounded-lg p-6">
-        {title && <h1 className="text-2xl font-semibold mb-4 text-center">{title}</h1>}
-        {children}
-      </div>
-    </div>
-  )
-}
+import '../styles/demo-auth.css'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -46,55 +36,51 @@ export default function Register() {
       setLoading(false)
     }
   }
+
   return (
-    <CenteredContainer title="Регистрация">
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Имя</label>
-          <input
-            type="text"
-            required
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="Иван Иванов"
-            value={name}
-            onChange={(e)=>setName(e.target.value)}
-          />
+    <div className="pp-root theme-dark" style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:'18px'}}>
+      <div className="authCard" role="region" aria-label="Registration">
+        {/* Заголовок карточки (опционально) */}
+        <div className="authTabs" aria-hidden="true" style={{borderBottom:'none', marginBottom:12}}>
+          <button className="authTabs__tab is-active" style={{cursor:'default'}}>Sign Up</button>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Email</label>
-          <input
-            type="email"
-            required
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e)=>setEmail(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Пароль</label>
-          <input
-            type="password"
-            required
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e)=>setPassword(e.target.value)}
-          />
-        </div>
-        {error && <div className="text-red-500 text-sm">{error}</div>}
-        <button
-          type="submit"
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-md py-2 font-medium"
-          disabled={loading}
-        >
-          {loading ? 'Регистрация...' : 'Зарегистрироваться'}
-        </button>
-        <p className="text-center text-sm">
-          Уже есть аккаунт?{' '}
-          <Link to="/login" className="text-indigo-600 hover:underline">Авторизация</Link>
-        </p>
-      </form>
-    </CenteredContainer>
+        <form className="authForm" onSubmit={onSubmit}>
+          <label className="field">
+            <span className="field__label">Name</span>
+            <span className="field__control">
+              <input className="input" type="text" placeholder="Your name" autoComplete="name" required value={name} onChange={(e)=>setName(e.target.value)} />
+            </span>
+          </label>
+          <label className="field">
+            <span className="field__label">Email</span>
+            <span className="field__control">
+              <input className="input" type="email" placeholder="Email" autoComplete="email" required value={email} onChange={(e)=>setEmail(e.target.value)} />
+            </span>
+          </label>
+          <label className="field">
+            <span className="field__label">Password</span>
+            <span className="field__control">
+              <input className="input" type="password" placeholder="Password" autoComplete="new-password" required value={password} onChange={(e)=>setPassword(e.target.value)} />
+            </span>
+          </label>
+
+          {error && <div className="alert" role="alert" style={{color:'#f87171'}}>{error}</div>}
+          <button className="btn btn--primary btn--full" type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign Up'}</button>
+
+          <div className="oauthRow">
+            <button className="btn btn--oauth btn--full" type="button" onClick={()=>{ window.location.href = '/oauth2/authorization/google' }} aria-label="Continue with Google">
+              <span className="oauthIcon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M21.35 11.1H12v2.9h5.35c-.25 1.6-1.8 4.7-5.35 4.7-3.22 0-5.85-2.66-5.85-5.9S8.78 6.9 12 6.9c1.84 0 3.07.78 3.77 1.45l2.57-2.48C16.85 4.45 14.62 3.5 12 3.5 6.98 3.5 2.9 7.58 2.9 12.6S6.98 21.7 12 21.7c6.98 0 8.1-6.1 7.8-10.6z" fill="currentColor"/>
+                </svg>
+              </span>
+              Continue with Google
+            </button>
+          </div>
+
+          <button className="link" type="button" onClick={()=>navigate('/login')}>Already have an account? Log In</button>
+        </form>
+      </div>
+    </div>
   )
 }

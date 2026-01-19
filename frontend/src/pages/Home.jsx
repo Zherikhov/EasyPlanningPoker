@@ -72,7 +72,7 @@ export default function Home() {
                 <h1 className="text-3xl md:text-4xl font-semibold">Free Planning Poker App</h1>
                 <p className="text-zinc-500">Estimate user stories in an Agile/Scrum team collaboratively.</p>
                 <p className="text-zinc-600 text-sm leading-relaxed max-w-md">
-                  Free / Open source Planning Poker Web App to estimate user stories for Agile/Scrum teams.
+                  Free/Open source Planning Poker Web App to estimate user stories for Agile/Scrum teams.
                   Create a session and invite your team members to estimate user stories efficiently.
                 </p>
                 <div>

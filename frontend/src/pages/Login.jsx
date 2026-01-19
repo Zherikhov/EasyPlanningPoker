@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/demo-auth.css'
 
@@ -11,9 +11,11 @@ export default function Login() {
     return window.localStorage.getItem('pp-theme') || 'dark'
   })
   const [lang, setLang] = useState(() => {
-    if (typeof window === 'undefined') return 'ru'
-    return window.localStorage.getItem('pp-lang') || 'ru'
+    if (typeof window === 'undefined') return 'en'
+    return window.localStorage.getItem('pp-lang') || 'en'
   })
+  const [langOpen, setLangOpen] = useState(false)
+  const langDdRef = useRef(null)
 
   // form state
   const [loginEmail, setLoginEmail] = useState('')
@@ -76,6 +78,26 @@ export default function Login() {
     }
   }, [lang])
 
+  // Закрытие выпадашки языка по клику вне и по Esc
+  useEffect(() => {
+    const onDocMouseDown = (e) => {
+      if (!langOpen) return
+      if (langDdRef.current && !langDdRef.current.contains(e.target)) {
+        setLangOpen(false)
+      }
+    }
+    const onKeyDown = (e) => {
+      if (!langOpen) return
+      if (e.key === 'Escape') setLangOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [langOpen])
+
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
 
   return (
@@ -97,17 +119,35 @@ export default function Login() {
 
           <div className="topbar__actions">
             <a className="nav__link" href="#" onClick={(e)=>e.preventDefault()}>Guide</a>
-            <a className="nav__link" href="#" onClick={(e)=>e.preventDefault()}>GitHub</a>
-            <select
-              aria-label="Выбрать язык интерфейса"
-              className="langSelect"
-              value={lang}
-              onChange={(e)=>setLang(e.target.value)}
-            >
-              <option value="ru">Русский</option>
-              <option value="en">English</option>
-              <option value="de">Deutsch</option>
-            </select>
+            <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
+            {/* Кастомный селект языка для стабильной стилизации опций */}
+            <div className="langDropdown" ref={langDdRef}>
+              <button
+                type="button"
+                className="langDropdown__button"
+                aria-haspopup="listbox"
+                aria-expanded={langOpen}
+                onClick={() => setLangOpen(o=>!o)}
+                title="Select language"
+              >
+                {lang === 'en' ? 'English' : lang}
+                <span className="langDropdown__chevron" aria-hidden="true">▾</span>
+              </button>
+              {langOpen && (
+                <ul className="langDropdown__menu" role="listbox" aria-label="Languages">
+                  <li
+                    role="option"
+                    aria-selected={lang === 'en'}
+                    className={`langDropdown__option ${lang === 'en' ? 'is-selected' : ''}`}
+                    onClick={() => { setLang('en'); setLangOpen(false) }}
+                    tabIndex={0}
+                    onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { setLang('en'); setLangOpen(false) } }}
+                  >
+                    English
+                  </li>
+                </ul>
+              )}
+            </div>
             <button
               className="themeToggle"
               type="button"
@@ -131,7 +171,7 @@ export default function Login() {
             <p className="lead">Estimate user stories in an Agile/Scrum team collaboratively.</p>
 
             <p className="desc">
-              Free / Open source Planning Poker Web App to estimate user stories for Agile/Scrum teams.
+              Free/Open source Planning Poker Web App to estimate user stories for Agile/Scrum teams.
               Create a session and invite your team members to estimate user stories efficiently.
             </p>
 
