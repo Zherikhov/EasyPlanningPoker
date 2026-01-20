@@ -262,6 +262,8 @@ button{font:inherit}
 }
 .hero__bg{
   position:absolute; inset:0;
+  z-index:-2; /* ниже глобального фона и листьев */
+  pointer-events:none;
   /* убрали зависимость от изображения bg-dark.png; используем композицию градиентов */
   background:
     radial-gradient(600px 220px at 20% 20%, rgba(37,99,235,.18), transparent 60%),

@@ -1,9 +1,13 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import '../styles/demo-auth.css'
 
 export default function Register() {
   const navigate = useNavigate()
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === 'undefined') return 'dark'
+    return window.localStorage.getItem('pp-theme') || 'dark'
+  })
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,8 +41,17 @@ export default function Register() {
     }
   }
 
+  // Синхронизация класса темы на <html>, чтобы глобальный фон/стили были консистентными
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const rootEl = document.documentElement
+      rootEl.classList.remove('theme-light', 'theme-dark')
+      rootEl.classList.add(`theme-${theme}`)
+    }
+  }, [theme])
+
   return (
-    <div className="pp-root theme-dark" style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:'18px'}}>
+    <div className={`pp-root theme-${theme}`} style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:'18px'}}>
       <div className="authCard" role="region" aria-label="Registration">
         {/* Заголовок карточки (опционально) */}
         <div className="authTabs" aria-hidden="true" style={{borderBottom:'none', marginBottom:12}}>

@@ -50,7 +50,10 @@ public class SecurityConfig {
                                 "/login",
                                 "/login/**",
                                 "/register",
-                                "/register/**"
+                                "/register/**",
+                                // SPA маршруты приложения (должны быть публичными, чтобы страница загружалась, а API останутся защищёнными)
+                                "/boards",
+                                "/boards/**"
                         ).permitAll()
 
                         // Остальные запросы защищены

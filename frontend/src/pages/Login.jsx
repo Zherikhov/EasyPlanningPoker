@@ -68,7 +68,12 @@ export default function Login() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Persist selection
       window.localStorage.setItem('pp-theme', theme)
+      // Sync class on <html> so global styles and other components can react
+      const rootEl = document.documentElement
+      rootEl.classList.remove('theme-light', 'theme-dark')
+      rootEl.classList.add(`theme-${theme}`)
     }
   }, [theme])
 
@@ -118,7 +123,7 @@ export default function Login() {
           <nav className="nav nav--hidden-on-mobile" aria-label="Top navigation" />
 
           <div className="topbar__actions">
-            <a className="nav__link" href="#" onClick={(e)=>e.preventDefault()}>Guide</a>
+            <a className="nav__link" href="#" onClick={(e)=>e.preventDefault()}>Guide (in the future)</a>
             <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
             {/* Кастомный селект языка для стабильной стилизации опций */}
             <div className="langDropdown" ref={langDdRef}>
