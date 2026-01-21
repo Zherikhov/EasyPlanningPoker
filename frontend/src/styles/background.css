@@ -107,6 +107,17 @@ html.theme-light body{
 
 .leaf svg{ width:100%; height:100%; display:block; transform: rotate(var(--r)); }
 
+/* Light theme: slightly darken leaves by ~15% */
+html.theme-light .bg--light .leaf svg{
+  /* Чуть меньше затемнения + немного контраста/насыщенности для лучшей читаемости */
+  filter: brightness(0.92) contrast(1.08) saturate(1.12);
+}
+
+/* Усиливаем тень у листьев в светлой теме для лучшего отделения от фона */
+html.theme-light .bg--light .leaf{
+  filter: drop-shadow(0 10px 16px rgba(15,23,42,.10));
+}
+
 @keyframes fallDiag{
   0%   { transform: translate3d(0, -160px, 0); }
   100% { transform: translate3d(calc(var(--dx) * 1px), calc(100vh + 220px), 0); }

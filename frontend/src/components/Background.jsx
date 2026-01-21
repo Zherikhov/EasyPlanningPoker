@@ -133,7 +133,8 @@ export default function Background() {
     const w = rnd(22, 38)
     const h = w * rnd(1.3, 1.7)
     const x = rnd(-8, 108)
-    const op = rnd(0.14, 0.28)
+    // Для светлой темы повышаем базовую непрозрачность листьев для лучшей видимости
+    const op = theme === 'light' ? rnd(0.20, 0.38) : rnd(0.14, 0.28)
     const r = rnd(-55, 55)
     const fallDur = rnd(28, 55)
     const swayDur = rnd(7.0, 12.5)
@@ -157,8 +158,26 @@ export default function Background() {
     el.style.setProperty('--spin', spin.toFixed(0))
 
     const getVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-    const stroke = getVar('--leaf-stroke') || 'rgba(34, 102, 44, .55)'
-    const stroke2 = getVar('--leaf-stroke-2') || 'rgba(22, 74, 33, .32)'
+
+    // For light theme: vary green stroke slightly per leaf to add diversity.
+    // Keep dark theme using CSS variables as-is.
+    let stroke, stroke2
+    if (theme === 'light') {
+      // Base green around 130° hue, vary a bit per leaf
+      const hue = rnd(118, 136) // small hue variation
+      const sat = rnd(38, 52)   // saturation variation
+      const light = rnd(28, 40) // lightness variation
+      // Чуть выше прозрачность контуров для повышения читаемости на светлом фоне
+      const alpha1 = 0.72
+      const alpha2 = 0.46
+      stroke = `hsl(${hue} ${sat}% ${light}% / ${alpha1})`
+      // Slightly darker, less saturated for inner hatch/veins
+      stroke2 = `hsl(${hue} ${Math.max(28, sat - 10)}% ${Math.max(20, light - 8)}% / ${alpha2})`
+    } else {
+      stroke = getVar('--leaf-stroke') || 'rgba(34, 102, 44, .55)'
+      stroke2 = getVar('--leaf-stroke-2') || 'rgba(22, 74, 33, .32)'
+    }
+
     el.innerHTML = pick(leafSvgs)(stroke, stroke2)
     return el
   }
