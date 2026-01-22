@@ -3,11 +3,14 @@ package com.easysprintpoker.api.boards;
 import com.easysprintpoker.domain.entity.BoardAccessLinkEntity;
 import com.easysprintpoker.domain.entity.BoardEntity;
 import com.easysprintpoker.domain.entity.BoardMembershipEntity;
+import com.easysprintpoker.domain.entity.BoardMembershipId;
+import com.easysprintpoker.domain.entity.UserEntity;
 import com.easysprintpoker.domain.enums.BoardRole;
 import com.easysprintpoker.domain.enums.MembershipStatus;
 import com.easysprintpoker.infrastructure.persistence.repository.BoardAccessLinkJpaRepository;
 import com.easysprintpoker.infrastructure.persistence.repository.BoardJpaRepository;
 import com.easysprintpoker.infrastructure.persistence.repository.BoardMembershipJpaRepository;
+import com.easysprintpoker.infrastructure.persistence.repository.UserJpaRepository;
 import com.easysprintpoker.infrastructure.web.errors.ForbiddenException;
 import com.easysprintpoker.infrastructure.web.errors.NotFoundException;
 import org.springframework.data.domain.Page;
@@ -16,6 +19,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,11 +38,13 @@ public class BoardsController {
     private final BoardJpaRepository boards;
     private final BoardMembershipJpaRepository memberships;
     private final BoardAccessLinkJpaRepository accessLinks;
+    private final UserJpaRepository users;
 
-    public BoardsController(BoardJpaRepository boards, BoardMembershipJpaRepository memberships, BoardAccessLinkJpaRepository accessLinks) {
+    public BoardsController(BoardJpaRepository boards, BoardMembershipJpaRepository memberships, BoardAccessLinkJpaRepository accessLinks, UserJpaRepository users) {
         this.boards = boards;
         this.memberships = memberships;
         this.accessLinks = accessLinks;
+        this.users = users;
     }
 
     private UUID getUserId(Authentication authentication) {
@@ -59,7 +66,8 @@ public class BoardsController {
     public BoardsPageResponse list(Authentication auth,
                                    @RequestParam(name = "mode", defaultValue = "member") String mode,
                                    @RequestParam(name = "page", defaultValue = "0") int page,
-                                   @RequestParam(name = "size", defaultValue = "20") int size) {
+                                   @RequestParam(name = "size", defaultValue = "20") int size,
+                                   @RequestParam(name = "search", required = false) String search) {
         UUID userId = getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         if (size > 100) size = 100;
@@ -87,8 +95,33 @@ public class BoardsController {
             default -> result = boards.findActiveMemberBoards(userId, pageable);
         }
 
-        List<BoardSummaryResponse> items = result.getContent().stream().map(BoardSummaryResponse::from).toList();
-        return new BoardsPageResponse(result.getNumber(), result.getSize(), result.getTotalElements(), items);
+        // Поиск по имени/описанию для текущего пользователя (in-memory для MVP)
+        List<BoardEntity> content = result.getContent();
+        if (search != null && !search.isBlank()) {
+            String q = search.toLowerCase(Locale.ROOT);
+            content = content.stream()
+                    .filter(b -> (b.getName() != null && b.getName().toLowerCase(Locale.ROOT).contains(q))
+                            || (b.getDescription() != null && b.getDescription().toLowerCase(Locale.ROOT).contains(q)))
+                    .toList();
+        }
+
+        List<BoardSummaryResponse> items = content.stream()
+                .map(b -> BoardSummaryResponse.from(b, memberships))
+                .toList();
+        long total = (search == null || search.isBlank()) ? result.getTotalElements() : items.size();
+        return new BoardsPageResponse(result.getNumber(), result.getSize(), total, items);
+    }
+
+    // 5.x GET /boards/{id}/summary — краткие детали (для страницы голосования по id)
+    @GetMapping("/{id}/summary")
+    public BoardSummaryResponse getBoardSummary(Authentication auth, @PathVariable("id") UUID id) {
+        UUID userId = getUserId(auth);
+        if (userId == null) throw new NotFoundException("User not found");
+        BoardEntity board = boards.findById(id).orElseThrow(() -> new NotFoundException("Board not found"));
+        // Требование: авторизованные пользователи могут открывать чужие доски для голосования,
+        // поэтому краткую сводку доски разрешаем любому аутентифицированному пользователю.
+        // Детальные данные и модерация по-прежнему защищены в других эндпоинтах.
+        return BoardSummaryResponse.from(board, memberships);
     }
 
     // 5.3 GET /boards/{boardKey}
@@ -133,10 +166,11 @@ public class BoardsController {
     public record BoardsPageResponse(int page, int size, long total, List<BoardSummaryResponse> items) {}
 
     public record BoardSummaryResponse(UUID id, String key, String name, String description, String visibility,
-                                       OffsetDateTime lastUsedAt) {
-        public static BoardSummaryResponse from(BoardEntity b) {
+                                       OffsetDateTime lastUsedAt, long participantsCount) {
+        public static BoardSummaryResponse from(BoardEntity b, BoardMembershipJpaRepository memberships) {
+            long cnt = memberships.countActiveByBoard_Id(b.getId());
             return new BoardSummaryResponse(b.getId(), b.getKey(), b.getName(), b.getDescription(),
-                    b.getVisibility().name(), b.getLastUsedAt());
+                    b.getVisibility().name(), b.getLastUsedAt(), cnt);
         }
     }
 
@@ -162,4 +196,51 @@ public class BoardsController {
                     e.getUsesCount(), e.getRevokedAt(), e.getCreatedAt());
         }
     }
+
+    // 5.x POST /boards — создание доски текущим пользователем
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public BoardSummaryResponse create(Authentication auth, @RequestBody CreateBoardRequest req) {
+        UUID userId = getUserId(auth);
+        if (userId == null) throw new NotFoundException("User not found");
+        String name = Optional.ofNullable(req.name).map(String::trim).orElse("");
+        if (name.length() < 2) throw new IllegalArgumentException("Name is too short");
+
+        UserEntity owner = users.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
+
+        BoardEntity b = new BoardEntity();
+        b.setName(name);
+        b.setDescription(Optional.ofNullable(req.description).map(String::trim).orElse(null));
+        b.setOwner(owner);
+        b.setLastUsedAt(OffsetDateTime.now().withNano(0));
+        // Сгенерировать уникальный короткий ключ
+        b.setKey(generateUniqueKey());
+        BoardEntity saved = boards.save(b);
+
+        // Добавить владельца как участника ADMIN ACTIVE
+        BoardMembershipEntity m = new BoardMembershipEntity();
+        m.setId(new BoardMembershipId(saved.getId(), owner.getId()));
+        m.setBoard(saved);
+        m.setUser(owner);
+        m.setRole(BoardRole.ADMIN);
+        m.setStatus(MembershipStatus.ACTIVE);
+        m.setJoinedAt(OffsetDateTime.now().withNano(0));
+        memberships.save(m);
+
+        return BoardSummaryResponse.from(saved, memberships);
+    }
+
+    private String generateUniqueKey() {
+        // Пытаемся несколько раз сгенерировать короткий ключ
+        for (int i = 0; i < 10; i++) {
+            String key = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+            Optional<BoardEntity> exists = boards.findByKey(key);
+            if (exists.isEmpty()) {
+                return key;
+            }
+        }
+        // fallback длинный ключ
+        return UUID.randomUUID().toString();
+    }
+
+    public record CreateBoardRequest(String name, String description) {}
 }

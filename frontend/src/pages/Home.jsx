@@ -62,10 +62,10 @@ export default function Home() {
         <div className="mx-auto max-w-6xl rounded-2xl border border-zinc-800/80 bg-zinc-900/20 backdrop-blur-md p-6 md:p-8 shadow-2xl">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
             {/* Left hero */}
-            <div className="text-zinc-100">
+            <div className="text-black dark:text-zinc-100">
               <div className="space-y-4">
                 <h1 className="text-3xl md:text-4xl font-semibold">Free Planning Poker App</h1>
-                <p className="text-zinc-500">Estimate user stories in an Agile/Scrum team collaboratively.</p>
+                <p className="text-black dark:text-zinc-500">Estimate user stories in an Agile/Scrum team collaboratively.</p>
                 <p className="text-zinc-600 text-sm leading-relaxed max-w-md">
                   Free/Open source Planning Poker Web App to estimate user stories for Agile/Scrum teams.
                   Create a session and invite your team members to estimate user stories efficiently.

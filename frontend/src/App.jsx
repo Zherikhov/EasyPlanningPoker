@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Boards from './pages/Boards.jsx'
+import Vote from './pages/Vote.jsx'
 import Background from './components/Background.jsx'
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/boards" element={<Boards />} />
+        <Route path="/boards/:boardId/vote" element={<Vote />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </>

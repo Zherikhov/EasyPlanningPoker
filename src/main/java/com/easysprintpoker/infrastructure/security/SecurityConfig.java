@@ -28,7 +28,7 @@ import java.util.Map;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, GoogleOAuth2SuccessHandler oAuth2SuccessHandler) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, GoogleOAuth2SuccessHandler oAuth2SuccessHandler, com.easysprintpoker.infrastructure.persistence.repository.AuthSessionJpaRepository authSessions, @org.springframework.beans.factory.annotation.Value("${security.jwt.refresh-cookie-name:pp-refresh}") String refreshCookieName) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -60,6 +60,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth.successHandler(oAuth2SuccessHandler))
+                // Попытка аутентификации по refresh-cookie, если нет Bearer
+                .addFilterBefore(new RefreshCookieAuthFilter(authSessions, refreshCookieName), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new BearerAuthFilter(jwtService), UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(c -> c
                         .authenticationEntryPoint((request, response, authException) -> {
@@ -112,5 +114,68 @@ public class SecurityConfig {
 
         @Override
         public Object getPrincipal() { return Map.of("userId", subject); }
+    }
+
+    static class RefreshCookieAuthFilter extends OncePerRequestFilter {
+        private final com.easysprintpoker.infrastructure.persistence.repository.AuthSessionJpaRepository authSessions;
+        private final String refreshCookieName;
+
+        public RefreshCookieAuthFilter(com.easysprintpoker.infrastructure.persistence.repository.AuthSessionJpaRepository authSessions, String refreshCookieName) {
+            this.authSessions = authSessions;
+            this.refreshCookieName = refreshCookieName;
+        }
+
+        @Override
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+            // Если уже аутентифицировано или есть Bearer — пропускаем
+            if (SecurityContextHolder.getContext().getAuthentication() != null) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            String auth = request.getHeader(HttpHeaders.AUTHORIZATION);
+            if (auth != null && auth.startsWith("Bearer ")) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            String refresh = readCookie(request, refreshCookieName);
+            if (refresh != null && !refresh.isBlank()) {
+                String hash = sha256(refresh);
+                try {
+                    authSessions.findByRefreshTokenHash(hash).ifPresent(session -> {
+                        var revokedAt = session.getRevokedAt();
+                        var expiresAt = session.getExpiresAt();
+                        var now = java.time.OffsetDateTime.now().withNano(0);
+                        if (revokedAt == null && (expiresAt == null || !expiresAt.isBefore(now))) {
+                            var userId = session.getUser().getId().toString();
+                            Authentication a = new SimpleAuthToken(userId);
+                            SecurityContextHolder.getContext().setAuthentication(a);
+                        }
+                    });
+                } catch (Exception ignore) {
+                    // Никоим образом не прерываем запрос, чтобы не ломать публичные страницы/логи
+                }
+            }
+
+            filterChain.doFilter(request, response);
+        }
+
+        private static String readCookie(HttpServletRequest request, String name) {
+            if (request.getCookies() == null) return null;
+            for (jakarta.servlet.http.Cookie c : request.getCookies()) {
+                if (name.equals(c.getName())) return c.getValue();
+            }
+            return null;
+        }
+
+        private static String sha256(String input) {
+            try {
+                java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+                byte[] hash = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                return java.util.HexFormat.of().formatHex(hash);
+            } catch (java.security.NoSuchAlgorithmException e) {
+                throw new IllegalStateException("SHA-256 not available", e);
+            }
+        }
     }
 }
