@@ -154,17 +154,27 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
     /**
      * Пытается определить базовый URL фронтенда для редиректа после OAuth2:
      * 1) Origin или Referer заголовок (приоритетно — соответствует домену, где открыта SPA).
-     * 2) X-Forwarded-Proto/Host (если есть прокси/ингресс перед приложением).
-     * 3) scheme + serverName (+port, если нестандартный).
-     * 4) Fallback на app.frontend-url из конфигурации.
+     * 2) Значение из конфигурации app.frontend-url (основной фолбэк и самый безопасный вариант).
+     * 3) X-Forwarded-Proto/Host (если есть прокси/ингресс перед приложением).
+     * 4) scheme + serverName (+port, если нестандартный) — как последний шанс.
+     *
+     * Важно: предпочтение всегда отдается конфигурации, чтобы избежать редиректа на домен backend-а
+     * (что приводит к попытке открыть /login на API и ошибкам вида INTERNAL_ERROR по пути /index.html).
      */
     private String resolveFrontendBaseUrl(HttpServletRequest request) {
-        // 1) Origin/Referer
+        // 1) Origin/Referer (но доверяем только «своим» доменам)
         String origin = safeOrigin(request.getHeader("Origin"));
         if (origin == null) origin = safeOrigin(request.getHeader("Referer"));
-        if (origin != null) return trimTrailingSlash(origin);
+        if (origin != null && isTrustedFrontendOrigin(origin, request)) {
+            return trimTrailingSlash(origin);
+        }
 
-        // 2) X-Forwarded-*
+        // 2) Конфигурация приложения (самый надежный фолбэк)
+        if (configuredFrontendBaseUrl != null && !configuredFrontendBaseUrl.isBlank()) {
+            return configuredFrontendBaseUrl;
+        }
+
+        // 3) X-Forwarded-*
         String proto = headerOrNull(request, "X-Forwarded-Proto");
         String host = headerOrNull(request, "X-Forwarded-Host");
         String port = headerOrNull(request, "X-Forwarded-Port");
@@ -179,7 +189,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
             return proto.toLowerCase() + "://" + trimTrailingSlash(h);
         }
 
-        // 3) request scheme + host
+        // 4) request scheme + host
         String scheme = request.getScheme();
         String serverName = request.getServerName();
         int serverPort = request.getServerPort();
@@ -191,7 +201,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
             return scheme.toLowerCase() + "://" + hostPort;
         }
 
-        // 4) fallback to configured value
+        // Последний резервый вариант — вернуть хотя бы конфигурацию (даже если пустая строка обработается выше)
         return configuredFrontendBaseUrl;
     }
 
@@ -215,6 +225,44 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
             return scheme + "://" + hostPort;
         } catch (Exception ignored) {
             return null;
+        }
+    }
+
+    /**
+     * Проверяет, что origin относится к нашему фронтенду. Это защищает от случаев,
+     * когда Referer/Origin приходят от *.google.com в OAuth-флоу и мы по ошибке
+     * редиректим пользователя обратно в Google (myaccount.google.com).
+     */
+    private boolean isTrustedFrontendOrigin(String origin, HttpServletRequest request) {
+        try {
+            java.net.URI o = java.net.URI.create(origin);
+            String oHost = o.getHost();
+            if (oHost == null) return false;
+
+            // 1) Отсекаем заведомо посторонние домены (google, facebook и т.д.)
+            String lower = oHost.toLowerCase();
+            if (lower.endsWith(".google.com") || lower.equals("google.com")) return false;
+
+            // 2) Сравниваем с хостом из конфигурации app.frontend-url
+            java.net.URI cfg = java.net.URI.create(configuredFrontendBaseUrl);
+            String cfgHost = cfg.getHost();
+            if (cfgHost != null && cfgHost.equalsIgnoreCase(oHost)) return true;
+
+            // 3) Сравниваем с текущим хостом запроса (или X-Forwarded-Host)
+            String xfHost = headerOrNull(request, "X-Forwarded-Host");
+            if (xfHost != null && !xfHost.isBlank()) {
+                // берём первый хост, если их несколько через запятую
+                String first = xfHost.split(",")[0].trim();
+                if (!first.isEmpty() && first.equalsIgnoreCase(oHost)) return true;
+            }
+
+            String reqHost = request.getServerName();
+            if (reqHost != null && reqHost.equalsIgnoreCase(oHost)) return true;
+
+            // Не узнали — не доверяем
+            return false;
+        } catch (Exception e) {
+            return false;
         }
     }
 
