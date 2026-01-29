@@ -218,7 +218,14 @@ public class VoteController {
                 myVote = v.getValueLabel();
             }
             String name = Optional.ofNullable(p.getDisplayNameSnapshot()).orElse("User");
-            pStates.add(new ParticipantState(p.getId(), name, hasVote, shown));
+            // Пробрасываем актуальный avatarUrl пользователя-участника, чтобы клиенты видели аватарки друг друга
+            String avatarUrl = null;
+            UUID participantUserId = null;
+            if (p.getUser() != null) {
+                participantUserId = p.getUser().getId();
+                avatarUrl = Optional.ofNullable(p.getUser().getAvatarUrl()).orElse(null);
+            }
+            pStates.add(new ParticipantState(p.getId(), participantUserId, name, hasVote, shown, avatarUrl));
         }
 
         boolean canModerate = canModerate(board, userId);
@@ -432,6 +439,6 @@ public class VoteController {
                                     String myVote, PermissionsDto permissions) {}
     public record ItemDto(UUID id, String title, String description) {}
     public record ScaleItemDto(int position, String label, BigDecimal numeric) {}
-    public record ParticipantState(UUID id, String name, boolean voted, String value) {}
+    public record ParticipantState(UUID id, UUID userId, String name, boolean voted, String value, String avatarUrl) {}
     public record PermissionsDto(boolean canReveal, boolean canReset) {}
 }

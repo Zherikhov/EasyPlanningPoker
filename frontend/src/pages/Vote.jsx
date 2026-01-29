@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import '../styles/demo-auth.css'
 
@@ -9,6 +9,18 @@ export default function Vote() {
     if (typeof window === 'undefined') return 'dark'
     return window.localStorage.getItem('pp-theme') || 'dark'
   })
+
+  // Профиль и состояния для тулбара, как на Boards
+  const [profile, setProfile] = useState(null)
+  const [lang, setLang] = useState(() => {
+    if (typeof window === 'undefined') return 'en'
+    return window.localStorage.getItem('pp-lang') || 'en'
+  })
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [langOpen, setLangOpen] = useState(false)
+  const menuRef = useRef(null)
+  const avatarBtnRef = useRef(null)
+  const langDdRef = useRef(null)
 
   const [state, setState] = useState(null) // серверное состояние голосования
   const [board, setBoard] = useState(null)
@@ -26,6 +38,67 @@ export default function Vote() {
   }, [theme])
 
   const token = useMemo(() => (typeof window !== 'undefined' ? window.localStorage.getItem('pp-token') : null), [])
+
+  // Загрузка профиля пользователя для тулбара (как на Boards)
+  useEffect(() => {
+    const loadProfile = async () => {
+      const t = window.localStorage.getItem('pp-token')
+      if (!t) { navigate('/login', { replace: true }); return }
+      try {
+        const res = await fetch('/api/v1/users/me', { headers: { 'Authorization': `Bearer ${t}` } })
+        if (res.status === 401) { navigate('/login', { replace: true }); return }
+        if (res.ok) setProfile(await res.json())
+      } catch (_) { /* ignore */ }
+    }
+    loadProfile()
+  }, [navigate])
+
+  // Сохранение языка
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('pp-lang', lang)
+    }
+  }, [lang])
+
+  // Закрытие меню пользователя по клику вне и Esc
+  useEffect(() => {
+    const onDocMouseDown = (e) => {
+      if (!menuOpen) return
+      if (menuRef.current && !menuRef.current.contains(e.target) && avatarBtnRef.current && !avatarBtnRef.current.contains(e.target)) {
+        setMenuOpen(false)
+      }
+    }
+    const onKeyDown = (e) => {
+      if (!menuOpen) return
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [menuOpen])
+
+  // Закрытие выпадающего списка языка
+  useEffect(() => {
+    const onDocMouseDown = (e) => {
+      if (!langOpen) return
+      if (langDdRef.current && !langDdRef.current.contains(e.target)) {
+        setLangOpen(false)
+      }
+    }
+    const onKeyDown = (e) => {
+      if (!langOpen) return
+      if (e.key === 'Escape') setLangOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [langOpen])
 
   // Загрузка краткой инфы о борде (для заголовка) и состояния голосования
   useEffect(() => {
@@ -99,6 +172,37 @@ export default function Vote() {
 
   const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'))
 
+  // Хэндлеры тулбара (аналогичные Boards)
+  const onLogout = async () => {
+    const t = window.localStorage.getItem('pp-token')
+    try {
+      await fetch('/api/v1/auth/logout', { method: 'POST', headers: t ? { 'Authorization': `Bearer ${t}` } : {} })
+    } catch (_) {}
+    try { window.localStorage.removeItem('pp-token') } catch (_) {}
+    navigate('/login', { replace: true })
+  }
+
+  const goProfile = () => {
+    setMenuOpen(false)
+    navigate('/profile')
+  }
+
+  const userName = useMemo(() => {
+    if (!profile) return ''
+    return profile.displayName || profile.name || profile.username || profile.email || ''
+  }, [profile])
+
+  const userInitial = useMemo(() => {
+    const src = (userName || '').trim()
+    if (!src) return '?'
+    const firstWord = src.split(/\s+/)[0]
+    const ch = firstWord.charAt(0)
+    return ch ? ch.toUpperCase() : '?'
+  }, [userName])
+
+  const avatarUrl = profile?.avatarUrl || profile?.avatar_url || null
+  const onAvatarImgError = (e) => { if (e?.currentTarget) e.currentTarget.style.display = 'none' }
+
   const onCardClick = async (label, numeric) => {
     // Нельзя голосовать, если голосование закрыто
     if (!token || state?.closed) return
@@ -155,14 +259,50 @@ export default function Vote() {
       <div className={`pp-root theme-${theme}`}>
         <header className="topbar">
           <div className="topbar__inner">
-            <a className="brand" href="#" onClick={(e)=>e.preventDefault()}>
-              <span className="brand__mark" aria-hidden="true">◆</span>
+            <a className="brand" href="/boards" onClick={(e)=>{e.preventDefault(); navigate('/boards')}}>
+              <span className="brand__mark" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M12 8v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </span>
               <span className="brand__text">Planning Poker</span>
             </a>
+            <nav className="nav nav--hidden-on-mobile" aria-label="Top navigation" />
             <div className="topbar__actions">
-              <button className="themeToggle" type="button" onClick={toggleTheme} aria-label="Toggle theme">
+              <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
+              <div className="langDropdown" ref={langDdRef}>
+                <button type="button" className="langDropdown__button" aria-haspopup="listbox" aria-expanded={langOpen} onClick={() => setLangOpen(o=>!o)} title="Select language">
+                  {lang === 'en' ? 'English' : lang}
+                  <span className="langDropdown__chevron" aria-hidden="true">▾</span>
+                </button>
+                {langOpen && (
+                  <ul className="langDropdown__menu" role="listbox" aria-label="Languages">
+                    <li role="option" aria-selected={lang === 'en'} className={`langDropdown__option ${lang === 'en' ? 'is-selected' : ''}`} onClick={() => { setLang('en'); setLangOpen(false) }} tabIndex={0}
+                        onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { setLang('en'); setLangOpen(false) } }}>
+                      English
+                    </li>
+                  </ul>
+                )}
+              </div>
+              <button className="themeToggle" type="button" aria-label="Theme toggle (visual)" aria-pressed={theme === 'light'} title={theme === 'light' ? 'Переключить на тёмную тему' : 'Переключить на светлую тему'} onClick={toggleTheme}>
                 <span className="themeToggle__pill" aria-hidden="true"></span>
               </button>
+              <div className="userMenu" ref={menuRef}>
+                <button type="button" className="userAvatarBtn" aria-haspopup="menu" aria-expanded={menuOpen} onClick={()=>setMenuOpen(o=>!o)} ref={avatarBtnRef}>
+                  <span className="userAvatarBtn__fallback" aria-hidden={!!avatarUrl}>{userInitial}</span>
+                  {avatarUrl && (
+                    <img src={avatarUrl} alt={userName || 'User avatar'} className="userAvatarBtn__img" onError={onAvatarImgError} draggable={false} />
+                  )}
+                </button>
+                {menuOpen && (
+                  <div className="userMenu__dropdown" role="menu">
+                    <button className="userMenu__item" role="menuitem" onClick={goProfile}>Profile</button>
+                    <button className="userMenu__item" role="menuitem" onClick={onLogout}>Log out</button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -180,14 +320,50 @@ export default function Vote() {
       <div className={`pp-root theme-${theme}`}>
         <header className="topbar">
           <div className="topbar__inner">
-            <a className="brand" href="#" onClick={(e)=>e.preventDefault()}>
-              <span className="brand__mark" aria-hidden="true">◆</span>
+            <a className="brand" href="/boards" onClick={(e)=>{e.preventDefault(); navigate('/boards')}}>
+              <span className="brand__mark" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M12 8v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </span>
               <span className="brand__text">Planning Poker</span>
             </a>
+            <nav className="nav nav--hidden-on-mobile" aria-label="Top navigation" />
             <div className="topbar__actions">
-              <button className="themeToggle" type="button" onClick={toggleTheme} aria-label="Toggle theme">
+              <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
+              <div className="langDropdown" ref={langDdRef}>
+                <button type="button" className="langDropdown__button" aria-haspopup="listbox" aria-expanded={langOpen} onClick={() => setLangOpen(o=>!o)} title="Select language">
+                  {lang === 'en' ? 'English' : lang}
+                  <span className="langDropdown__chevron" aria-hidden="true">▾</span>
+                </button>
+                {langOpen && (
+                  <ul className="langDropdown__menu" role="listbox" aria-label="Languages">
+                    <li role="option" aria-selected={lang === 'en'} className={`langDropdown__option ${lang === 'en' ? 'is-selected' : ''}`} onClick={() => { setLang('en'); setLangOpen(false) }} tabIndex={0}
+                        onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { setLang('en'); setLangOpen(false) } }}>
+                      English
+                    </li>
+                  </ul>
+                )}
+              </div>
+              <button className="themeToggle" type="button" aria-label="Theme toggle (visual)" aria-pressed={theme === 'light'} title={theme === 'light' ? 'Переключить на тёмную тему' : 'Переключить на светлую тему'} onClick={toggleTheme}>
                 <span className="themeToggle__pill" aria-hidden="true"></span>
               </button>
+              <div className="userMenu" ref={menuRef}>
+                <button type="button" className="userAvatarBtn" aria-haspopup="menu" aria-expanded={menuOpen} onClick={()=>setMenuOpen(o=>!o)} ref={avatarBtnRef}>
+                  <span className="userAvatarBtn__fallback" aria-hidden={!!avatarUrl}>{userInitial}</span>
+                  {avatarUrl && (
+                    <img src={avatarUrl} alt={userName || 'User avatar'} className="userAvatarBtn__img" onError={onAvatarImgError} draggable={false} />
+                  )}
+                </button>
+                {menuOpen && (
+                  <div className="userMenu__dropdown" role="menu">
+                    <button className="userMenu__item" role="menuitem" onClick={goProfile}>Profile</button>
+                    <button className="userMenu__item" role="menuitem" onClick={onLogout}>Log out</button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -211,15 +387,90 @@ export default function Vote() {
     <div className={`pp-root theme-${theme}`}>
       <header className="topbar">
         <div className="topbar__inner">
-          <a className="brand" href="#" onClick={(e)=>e.preventDefault()}>
-            <span className="brand__mark" aria-hidden="true">◆</span>
+          <a className="brand" href="/boards" onClick={(e)=>{e.preventDefault(); navigate('/boards')}}>
+            <span className="brand__mark" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="2"/>
+                <path d="M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M12 8v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </span>
             <span className="brand__text">Planning Poker</span>
           </a>
+
+          <nav className="nav nav--hidden-on-mobile" aria-label="Top navigation" />
+
           <div className="topbar__actions">
-            <span className="sessionName" title="Board">{board?.name || 'Board'}</span>
-            <button className="themeToggle" type="button" onClick={toggleTheme} aria-label="Toggle theme">
+            <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
+
+            <div className="langDropdown" ref={langDdRef}>
+              <button
+                type="button"
+                className="langDropdown__button"
+                aria-haspopup="listbox"
+                aria-expanded={langOpen}
+                onClick={() => setLangOpen(o=>!o)}
+                title="Select language"
+              >
+                {lang === 'en' ? 'English' : lang}
+                <span className="langDropdown__chevron" aria-hidden="true">▾</span>
+              </button>
+              {langOpen && (
+                <ul className="langDropdown__menu" role="listbox" aria-label="Languages">
+                  <li
+                    role="option"
+                    aria-selected={lang === 'en'}
+                    className={`langDropdown__option ${lang === 'en' ? 'is-selected' : ''}`}
+                    onClick={() => { setLang('en'); setLangOpen(false) }}
+                    tabIndex={0}
+                    onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { setLang('en'); setLangOpen(false) } }}
+                  >
+                    English
+                  </li>
+                </ul>
+              )}
+            </div>
+
+            <button
+              className="themeToggle"
+              type="button"
+              aria-label="Theme toggle (visual)"
+              aria-pressed={theme === 'light'}
+              title={theme === 'light' ? 'Переключить на тёмную тему' : 'Переключить на светлую тему'}
+              onClick={toggleTheme}
+            >
               <span className="themeToggle__pill" aria-hidden="true"></span>
             </button>
+
+            {/* User avatar + dropdown (правый край) */}
+            <div className="userMenu" ref={menuRef}>
+              <button
+                type="button"
+                className="userAvatarBtn"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={()=>setMenuOpen(o=>!o)}
+                ref={avatarBtnRef}
+              >
+                {/* Буква как фон, картинка сверху если есть */}
+                <span className="userAvatarBtn__fallback" aria-hidden={!!avatarUrl}>{userInitial}</span>
+                {avatarUrl && (
+                  <img
+                    src={avatarUrl}
+                    alt={userName || 'User avatar'}
+                    className="userAvatarBtn__img"
+                    onError={onAvatarImgError}
+                    draggable={false}
+                  />
+                )}
+              </button>
+              {menuOpen && (
+                <div className="userMenu__dropdown" role="menu">
+                  <button className="userMenu__item" role="menuitem" onClick={goProfile}>Profile</button>
+                  <button className="userMenu__item" role="menuitem" onClick={onLogout}>Log out</button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -249,11 +500,18 @@ export default function Vote() {
               {participants.map(p => {
                 const hasVote = !!p.voted
                 const display = revealed ? (p.value ?? '—') : (hasVote ? '●' : '—')
+                // Всегда используем avatarUrl, пришедший с сервера для каждого участника,
+                // без локальной подмены по совпадению имени, чтобы исключить рассинхрон между пользователями
+                const pAvatarUrl = p?.avatarUrl || null
+                const pInitial = String(p.name||'U').trim().charAt(0).toUpperCase()
                 return (
                   <div key={p.id} className={`participant${hasVote ? ' voted' : ''}`} style={{border:'1px solid var(--border)', borderRadius:16, padding:12, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, background:'rgba(255,255,255,.02)'}}>
                     <div className="pLeft" style={{display:'flex', alignItems:'center', gap:10, minWidth:0}}>
-                      <div className="avatar" style={{width:34, height:34, borderRadius:999, display:'grid', placeItems:'center', background:'rgba(37,99,235,.22)', color:'var(--primary-ink)', fontWeight:900}}>
-                        {String(p.name||'U').trim().charAt(0).toUpperCase()}
+                      <div className="participantAvatar" aria-hidden={false}>
+                        <span className="participantAvatar__fallback" aria-hidden={!!pAvatarUrl}>{pInitial}</span>
+                        {pAvatarUrl && (
+                          <img src={pAvatarUrl} alt="" className="participantAvatar__img" onError={(e)=>{ if(e?.currentTarget) e.currentTarget.style.display='none' }} draggable={false} />
+                        )}
                       </div>
                       <div className="name" title={p.name} style={{fontSize:14, fontWeight:800, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:160}}>{p.name}</div>
                     </div>

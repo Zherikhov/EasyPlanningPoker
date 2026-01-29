@@ -14,9 +14,9 @@ export default function Background() {
     const el = bgRef.current
     if (!el) return
     const onMouseMove = (e) => {
+      // Небольшой параллакс по X и Y. Амплитуду по Y держим меньше, чтобы не появлялись «полосы» по краям.
       const x = (e.clientX / window.innerWidth - 0.5) * 6
-      // Важно: по вертикали фон не двигаем, чтобы не появлялись чёрные полосы
-      const y = 0
+      const y = (e.clientY / window.innerHeight - 0.5) * 4
       el.style.setProperty('--tx', `${x}px`)
       el.style.setProperty('--ty', `${y}px`)
     }

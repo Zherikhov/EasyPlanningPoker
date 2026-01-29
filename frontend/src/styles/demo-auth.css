@@ -144,7 +144,8 @@ button{font:inherit}
   transition: transform .28s ease, background .28s ease, box-shadow .28s ease;
 }
 .pp-root.theme-light .themeToggle{border-color:rgba(2,6,23,.12); background:rgba(2,6,23,.06)}
-.pp-root.theme-light .themeToggle__pill{transform: translateX(18px); background:#ffffff; box-shadow: 0 6px 14px rgba(2,6,23,.20)}
+/* Светлая тема — «пилюля» слева (позиция по умолчанию), тёмная — справа */
+.pp-root.theme-dark .themeToggle__pill{transform: translateX(18px); background:#e5e7eb; box-shadow: 0 8px 18px rgba(0,0,0,.35)}
 
 /* Lang select */
 .langSelect{
@@ -358,6 +359,17 @@ button{font:inherit}
 .cta{margin-top:4px}
 
 .hero__right{position:relative; display:flex; align-items:center; justify-content:center; padding:18px 0}
+
+/* Participants avatar (фиксированный размер как в toolbar) */
+.participantsGrid .participantAvatar{
+  width:34px; height:34px; border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(148,163,184,.10);
+  position:relative; overflow:hidden;
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.participantsGrid .participantAvatar__fallback{font-weight:900; font-size:14px; color: var(--primary-ink); opacity:.95}
+.participantsGrid .participantAvatar__img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
 
 /* Auth card */
 .authCard{

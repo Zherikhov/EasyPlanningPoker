@@ -256,7 +256,7 @@ export default function Boards() {
     <div className={`pp-root theme-${theme}`}>
       <header className="topbar">
         <div className="topbar__inner">
-          <a className="brand" href="#" onClick={(e)=>e.preventDefault()}>
+          <a className="brand" href="/boards" onClick={(e)=>{e.preventDefault(); navigate('/boards')}}>
             <span className="brand__mark" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="2"/>
