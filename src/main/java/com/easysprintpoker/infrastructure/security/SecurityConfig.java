@@ -60,9 +60,9 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth.successHandler(oAuth2SuccessHandler))
-                // Попытка аутентификации по refresh-cookie, если нет Bearer
-                .addFilterBefore(new RefreshCookieAuthFilter(authSessions, refreshCookieName), UsernamePasswordAuthenticationFilter.class)
+                // Сначала пробуем Bearer; если не удалось аутентифицировать — фоллбэк на refresh-cookie
                 .addFilterBefore(new BearerAuthFilter(jwtService), UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new RefreshCookieAuthFilter(authSessions, refreshCookieName), BearerAuthFilter.class)
                 .exceptionHandling(c -> c
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -127,16 +127,13 @@ public class SecurityConfig {
 
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-            // Если уже аутентифицировано или есть Bearer — пропускаем
+            // Если уже аутентифицировано — пропускаем
             if (SecurityContextHolder.getContext().getAuthentication() != null) {
                 filterChain.doFilter(request, response);
                 return;
             }
-            String auth = request.getHeader(HttpHeaders.AUTHORIZATION);
-            if (auth != null && auth.startsWith("Bearer ")) {
-                filterChain.doFilter(request, response);
-                return;
-            }
+            // Не обращаем внимания на наличие заголовка Authorization —
+            // Bearer-фильтр уже отработал и, если токен невалиден/просрочен, аутентификация не установлена.
 
             String refresh = readCookie(request, refreshCookieName);
             if (refresh != null && !refresh.isBlank()) {
