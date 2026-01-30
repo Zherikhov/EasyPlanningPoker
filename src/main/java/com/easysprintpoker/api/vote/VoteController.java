@@ -170,9 +170,8 @@ public class VoteController {
         // Разрешаем доступ любому аутентифицированному пользователю (требование задачи)
 
         EstimationSessionEntity session = getOrCreateActiveSession(board, userId);
-        // Убедимся, что текущий пользователь сразу присутствует среди участников,
-        // даже если он не член доски (гость по требованиям)
-        ensureParticipant(session, userId);
+        // Не добавляем текущего пользователя автоматически в участники.
+        // Требуется явный "перезаход" после удаления.
         // lazily ensure participants for all active members so список участников отображался
         List<BoardMembershipEntity> activeMembers = memberships.findByBoardIdWithStatuses(boardId, List.of(MembershipStatus.ACTIVE));
         for (BoardMembershipEntity m : activeMembers) {
@@ -217,15 +216,18 @@ public class VoteController {
             if (p.getUser() != null && p.getUser().getId().equals(userId) && v != null) {
                 myVote = v.getValueLabel();
             }
-            String name = Optional.ofNullable(p.getDisplayNameSnapshot()).orElse("User");
-            // Пробрасываем актуальный avatarUrl пользователя-участника, чтобы клиенты видели аватарки друг друга
-            String avatarUrl = null;
-            UUID participantUserId = null;
-            if (p.getUser() != null) {
-                participantUserId = p.getUser().getId();
-                avatarUrl = Optional.ofNullable(p.getUser().getAvatarUrl()).orElse(null);
+            // Карточки участников должны показываться только для присутствующих (не kicked/left)
+            if (present) {
+                String name = Optional.ofNullable(p.getDisplayNameSnapshot()).orElse("User");
+                // Пробрасываем актуальный avatarUrl пользователя-участника, чтобы клиенты видели аватарки друг друга
+                String avatarUrl = null;
+                UUID participantUserId = null;
+                if (p.getUser() != null) {
+                    participantUserId = p.getUser().getId();
+                    avatarUrl = Optional.ofNullable(p.getUser().getAvatarUrl()).orElse(null);
+                }
+                pStates.add(new ParticipantState(p.getId(), participantUserId, name, hasVote, shown, avatarUrl));
             }
-            pStates.add(new ParticipantState(p.getId(), participantUserId, name, hasVote, shown, avatarUrl));
         }
 
         boolean canModerate = canModerate(board, userId);
@@ -266,7 +268,12 @@ public class VoteController {
         // Разрешаем голосование любому аутентифицированному пользователю
 
         EstimationSessionEntity session = getOrCreateActiveSession(board, userId);
-        SessionParticipantEntity me = ensureParticipant(session, userId);
+        // Пользователь должен быть участником сессии и не быть кикнутым (leftAt == null)
+        SessionParticipantEntity me = participants.findBySession_IdAndUser_Id(session.getId(), userId)
+                .orElseThrow(() -> new ForbiddenException("You have been removed from this board. Please re-enter to participate."));
+        if (me.getLeftAt() != null) {
+            throw new ForbiddenException("You have been removed from this board. Please re-enter to participate.");
+        }
         UUID itemId = session.getCurrentItemId();
         if (itemId == null) throw new NotFoundException("No active item");
 
@@ -308,6 +315,32 @@ public class VoteController {
                 items.save(curItem);
             }
         }
+
+        return buildState(session, userId, board);
+    }
+
+    // Явное присоединение/перезаход в голосование текущего пользователя
+    @PostMapping(path = "/join")
+    @Transactional
+    public VoteStateResponse join(Authentication auth, @PathVariable("boardId") UUID boardId) {
+        UUID userId = getUserId(auth);
+        if (userId == null) throw new NotFoundException("User not found");
+        BoardEntity board = boards.findById(boardId).orElseThrow(() -> new NotFoundException("Board not found"));
+
+        EstimationSessionEntity session = getOrCreateActiveSession(board, userId);
+        SessionParticipantEntity me = participants.findBySession_IdAndUser_Id(session.getId(), userId).orElse(null);
+        if (me == null) {
+            // создать нового участника
+            ensureParticipant(session, userId);
+        } else if (me.getLeftAt() != null) {
+            // реактивировать кикнутого
+            me.setLeftAt(null);
+            me.setJoinedAt(OffsetDateTime.now().withNano(0));
+            participants.save(me);
+        }
+
+        session.setLastActivityAt(OffsetDateTime.now().withNano(0));
+        sessions.save(session);
 
         return buildState(session, userId, board);
     }

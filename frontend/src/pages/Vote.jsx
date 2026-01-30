@@ -110,6 +110,8 @@ export default function Vote() {
     }
     const load = async () => {
       try {
+        // Явный вход в голосование, чтобы пользователь появился как участник (и для восстановления после kick)
+        await fetch(`/api/v1/boards/${boardId}/vote/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } })
         const [resBoard, resState] = await Promise.all([
           fetch(`/api/v1/boards/${boardId}/summary`, { headers: { 'Authorization': `Bearer ${token}` } }),
           fetch(`/api/v1/boards/${boardId}/vote/state`, { headers: { 'Authorization': `Bearer ${token}` } })
@@ -230,6 +232,7 @@ export default function Vote() {
         body: JSON.stringify({ valueLabel: label, numericValue: numeric ?? null })
       })
       if (res.status === 401) { navigate('/login', { replace: true }); return }
+      if (res.status === 403) { navigate('/boards', { replace: true }); return }
       if (res.ok) {
         const data = await res.json()
         setState(data)
@@ -259,6 +262,18 @@ export default function Vote() {
     }
   }
 
+  // Если текущего пользователя нет среди участников, значит он кикнут — перенаправляем на /boards
+  useEffect(() => {
+    if (!profile || !state) return
+    try {
+      const myId = profile?.id
+      const presentIds = (state?.participants || []).map(p => p?.userId).filter(Boolean)
+      if (myId && !presentIds.includes(myId)) {
+        navigate('/boards', { replace: true })
+      }
+    } catch (_) { /* ignore */ }
+  }, [state, profile, navigate])
+
   const onReset = async () => {
     if (!token || !state?.permissions?.canReset) return
     try {
@@ -273,6 +288,23 @@ export default function Vote() {
       }
     } catch (e) {
       setError(e.message || 'Не удалось сбросить голоса')
+    }
+  }
+
+  const onKick = async (userId) => {
+    if (!token || !state?.permissions?.canReveal) return // используем canReveal как прокси-право модерации
+    try {
+      const res = await fetch(`/api/v1/boards/${boardId}/vote/kick/${userId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (res.status === 401) { navigate('/login', { replace: true }); return }
+      if (res.ok) {
+        setState(await res.json())
+        reloadState()
+      }
+    } catch (e) {
+      setError(e.message || 'Не удалось удалить участника')
     }
   }
 
@@ -518,7 +550,7 @@ export default function Vote() {
               <h2 style={{margin:0, fontSize:15}}>Participants</h2>
               <div className="muted" style={{color:'var(--muted)', fontSize:12}}>{revealed ? 'Cards are revealed' : 'Cards are hidden'}</div>
             </div>
-            <div className="participantsGrid" style={{marginTop:12, display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))', gap:12}}>
+            <div className="participantsGrid" style={{marginTop:12, display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:12}}>
               {participants.map(p => {
                 const hasVote = !!p.voted
                 const display = revealed ? (p.value ?? '—') : (hasVote ? '●' : '—')
@@ -527,18 +559,44 @@ export default function Vote() {
                 const pAvatarUrl = p?.avatarUrl || null
                 const pInitial = String(p.name||'U').trim().charAt(0).toUpperCase()
                 return (
-                  <div key={p.id} className={`participant${hasVote ? ' voted' : ''}`} style={{border:'1px solid var(--border)', borderRadius:16, padding:12, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, background:'rgba(255,255,255,.02)'}}>
-                    <div className="pLeft" style={{display:'flex', alignItems:'center', gap:10, minWidth:0}}>
+                  <div key={p.id} className={`participant${hasVote ? ' voted' : ''}`} style={{border:'1px solid var(--border)', borderRadius:16, padding:16, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, background:'rgba(255,255,255,.02)'}}>
+                    <div className="pLeft" style={{display:'flex', alignItems:'center', gap:10, minWidth:0, flex:1}}>
                       <div className="participantAvatar" aria-hidden={false}>
                         <span className="participantAvatar__fallback" aria-hidden={!!pAvatarUrl}>{pInitial}</span>
                         {pAvatarUrl && (
                           <img src={pAvatarUrl} alt="" className="participantAvatar__img" onError={(e)=>{ if(e?.currentTarget) e.currentTarget.style.display='none' }} draggable={false} />
                         )}
                       </div>
-                      <div className="name" title={p.name} style={{fontSize:14, fontWeight:800, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:160}}>{p.name}</div>
+                      <div className="name" title={p.name} style={{fontSize:14, fontWeight:800, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%'}}>{p.name}</div>
                     </div>
-                    <div className={`voteChip${revealed ? '' : ' hidden'}`} style={{minWidth:46, height:34, borderRadius:12, border:'1px solid var(--border)', display:'grid', placeItems:'center', fontWeight:950, fontSize:16, background:'rgba(255,255,255,.03)', color:!revealed ? 'rgba(156,163,175,.75)' : undefined}}>
-                      {display}
+                    <div style={{display:'flex', alignItems:'center', gap:8}}>
+                      <div className={`voteChip${revealed ? '' : ' hidden'}`} style={{minWidth:46, height:34, borderRadius:12, border:'1px solid var(--border)', display:'grid', placeItems:'center', fontWeight:950, fontSize:16, background:'rgba(255,255,255,.03)', color:!revealed ? 'rgba(156,163,175,.75)' : undefined}}>
+                        {display}
+                      </div>
+                      {/* Кнопка удаления участника доступна модератору; скрываем для самого себя и когда нет userId (напр. гость) */}
+                      {state?.permissions?.canReveal && p.userId && profile?.id !== p.userId && (
+                        <button
+                          type="button"
+                          className="iconBtn"
+                          aria-label="Remove participant"
+                          title="Remove participant"
+                          onClick={() => onKick(p.userId)}
+                          style={{
+                            width:28,
+                            height:28,
+                            borderRadius:8,
+                            border:'1px solid var(--border)',
+                            display:'grid',
+                            placeItems:'center',
+                            background:'transparent',
+                            color:'var(--muted)'
+                          }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
