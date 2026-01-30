@@ -42,4 +42,4 @@ ENV JAVA_OPTS="" \
     SPRING_PROFILES_ACTIVE=""
 
 # Запуск приложения
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} -jar /app/app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS ${SPRING_PROFILES_ACTIVE:+-Dspring.profiles.active=$SPRING_PROFILES_ACTIVE} -jar /app/app.jar"]
