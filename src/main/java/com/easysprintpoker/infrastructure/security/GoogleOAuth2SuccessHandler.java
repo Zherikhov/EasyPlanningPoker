@@ -30,6 +30,21 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Component
+/**
+ * AuthenticationSuccessHandler for Google OAuth2 login.
+ *
+ * Responsibilities:
+ * - Find or create the application user mapped to Google identity.
+ * - Issue access JWT and create a refresh session with an HttpOnly cookie.
+ * - Redirect the browser back to the SPA with the access token in the query string.
+ *
+ * Security and robustness notes:
+ * - The redirect base URL is resolved with a strict preference to the configured
+ *   "app.frontend-url". When that value accidentally points to localhost on a
+ *   production host, we attempt a safe override using X-Forwarded-* headers to the
+ *   public host (if present), preventing redirects to http://localhost:5173 in PROD.
+ * - We never fall back to backend host to avoid redirecting SPA flows to API domain.
+ */
 public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserJpaRepository users;
@@ -40,6 +55,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
     private final long refreshTtlDays;
     private final String refreshCookieName;
     private final boolean cookieSecure;
+    private final String cookieSameSite;
     private final String configuredFrontendBaseUrl;
     private final boolean behindProxyEnabled;
 
@@ -53,19 +69,21 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
                                       @Value("${security.jwt.refresh-ttl-days:30}") long refreshTtlDays,
                                       @Value("${security.jwt.refresh-cookie-name:pp-refresh}") String refreshCookieName,
                                       @Value("${security.cookie.secure:false}") boolean cookieSecure,
+                                      @Value("${security.cookie.same-site:Lax}") String cookieSameSite,
                                       @Value("${app.frontend-url:}") String frontendBaseUrl,
                                       @Value("${app.behind-proxy-enabled:false}") boolean behindProxyEnabled) {
-        this.users = users;
-        this.identities = identities;
-        this.sessions = sessions;
-        this.jwtService = jwtService;
-        this.accessTtlSeconds = accessTtlSeconds;
-        this.refreshTtlDays = refreshTtlDays;
-        this.refreshCookieName = refreshCookieName;
-        this.cookieSecure = cookieSecure;
-        this.configuredFrontendBaseUrl = trimTrailingSlash(frontendBaseUrl);
-        this.behindProxyEnabled = behindProxyEnabled;
-    }
+         this.users = users;
+         this.identities = identities;
+         this.sessions = sessions;
+         this.jwtService = jwtService;
+         this.accessTtlSeconds = accessTtlSeconds;
+         this.refreshTtlDays = refreshTtlDays;
+         this.refreshCookieName = refreshCookieName;
+         this.cookieSecure = cookieSecure;
+         this.cookieSameSite = normalizeSameSite(cookieSameSite);
+         this.configuredFrontendBaseUrl = trimTrailingSlash(frontendBaseUrl);
+         this.behindProxyEnabled = behindProxyEnabled;
+     }
 
     @Override
     @Transactional
@@ -88,8 +106,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
             UserEntity user = null;
             if (email != null) {
                 String norm = email.trim().toLowerCase();
-                Optional<UserEntity> byEmail = users.findAll().stream().filter(u -> norm.equals(u.getEmailNormalized())).findFirst();
-                user = byEmail.orElse(null);
+                user = users.findByEmailNormalized(norm).orElse(null);
             }
             if (user == null) {
                 user = new UserEntity();
@@ -150,7 +167,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         cookie.setMaxAge((int) (refreshTtlDays * 24 * 60 * 60));
         // SameSite set via header (Spring Cookie doesn't expose)
         response.addCookie(cookie);
-        response.addHeader("Set-Cookie", refreshCookieName + "=" + refresh + "; Path=/; HttpOnly; Max-Age=" + cookie.getMaxAge() + "; SameSite=Lax" + (cookieSecure ? "; Secure" : ""));
+        response.addHeader("Set-Cookie", refreshCookieName + "=" + refresh + "; Path=/; HttpOnly; Max-Age=" + cookie.getMaxAge() + "; SameSite=" + cookieSameSite + (cookieSecure ? "; Secure" : ""));
 
         // redirect back to SPA login handler (absolute URL)
         var resolution = resolveFrontendBaseUrl(request);
@@ -173,39 +190,35 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
     }
 
     /**
-     * Пытается определить базовый URL фронтенда для редиректа после OAuth2:
-     * 1) Origin или Referer заголовок (приоритетно — соответствует домену, где открыта SPA).
-     * 2) Значение из конфигурации app.frontend-url (основной фолбэк и самый безопасный вариант).
-     * 3) X-Forwarded-Proto/Host (если есть прокси/ингресс перед приложением).
-     * 4) scheme + serverName (+port, если нестандартный) — как последний шанс.
-     *
-     * Важно: предпочтение всегда отдается конфигурации, чтобы избежать редиректа на домен backend-а
-     * (что приводит к попытке открыть /login на API и ошибкам вида INTERNAL_ERROR по пути /index.html).
+     * Resolves the SPA base URL for post-OAuth2 redirection.
+     * Priority:
+     * 1) app.frontend-url (single source of truth).
+     *    If it points to a localhost host but the request carries public X-Forwarded-*
+     *    headers, we safely override to forwarded host to avoid redirecting to localhost in PROD.
+     * 2) X-Forwarded-Proto/Host (when behind a proxy) if configured or needed for localhost override.
+     * 3) Otherwise: return null (we never fall back to backend host to avoid SPA misrouting).
      */
     private RedirectResolution resolveFrontendBaseUrl(HttpServletRequest request) {
-        // 1) Единственный источник истины — конфигурация, если задана
+        // 1) Configured value dominates, with a localhost safety override using X-Forwarded-*
         if (configuredFrontendBaseUrl != null && !configuredFrontendBaseUrl.isBlank()) {
+            if (isLocalhostUrl(configuredFrontendBaseUrl)) {
+                String forwarded = forwardedBaseUrl(request);
+                if (forwarded != null && !isLocalhostUrl(forwarded)) {
+                    return new RedirectResolution(forwarded, "X_FORWARDED_OVERRIDE_LOCALHOST");
+                }
+            }
             return new RedirectResolution(configuredFrontendBaseUrl, "CONFIG");
         }
 
-        // 2) При разрешенном режиме за прокси — берем X-Forwarded-*
+        // 2) If explicitly allowed to trust proxy headers — use them
         if (behindProxyEnabled) {
-            String proto = headerOrNull(request, "X-Forwarded-Proto");
-            String host = headerOrNull(request, "X-Forwarded-Host");
-            String port = headerOrNull(request, "X-Forwarded-Port");
-            if (proto != null && host != null) {
-                String h = host;
-                if (port != null && !host.contains(":")) {
-                    if (!("http".equalsIgnoreCase(proto) && "80".equals(port)) &&
-                            !("https".equalsIgnoreCase(proto) && "443".equals(port))) {
-                        h = host + ":" + port;
-                    }
-                }
-                return new RedirectResolution(proto.toLowerCase() + "://" + trimTrailingSlash(h), "X_FORWARDED");
+            String forwarded = forwardedBaseUrl(request);
+            if (forwarded != null) {
+                return new RedirectResolution(forwarded, "X_FORWARDED");
             }
         }
 
-        // 3) Никаких фолбэков на текущий host (запрещено, чтобы не редиректить на backend)
+        // 3) No unsafe fallbacks
         return new RedirectResolution(null, "ERROR");
     }
 
@@ -289,6 +302,42 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
     }
 
+    private static String normalizeSameSite(String v) {
+        if (v == null) return "Lax";
+        String x = v.trim();
+        if (x.equalsIgnoreCase("None")) return "None";
+        if (x.equalsIgnoreCase("Strict")) return "Strict";
+        return "Lax";
+    }
+
+    private static boolean isLocalhostUrl(String url) {
+        try {
+            java.net.URI u = java.net.URI.create(url);
+            String host = u.getHost();
+            if (host == null) return false;
+            String h = host.toLowerCase();
+            return h.equals("localhost") || h.equals("127.0.0.1") || h.equals("::1");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static String forwardedBaseUrl(HttpServletRequest request) {
+        String proto = headerOrNull(request, "X-Forwarded-Proto");
+        String host = headerOrNull(request, "X-Forwarded-Host");
+        String port = headerOrNull(request, "X-Forwarded-Port");
+        if (proto == null || host == null) return null;
+        // If multiple hosts are present, use the first one
+        String hostOnly = host.contains(",") ? host.split(",")[0].trim() : host;
+        String h = hostOnly;
+        if (port != null && !hostOnly.contains(":")) {
+            boolean isDefault = ("http".equalsIgnoreCase(proto) && "80".equals(port)) ||
+                    ("https".equalsIgnoreCase(proto) && "443".equals(port));
+            if (!isDefault) h = hostOnly + ":" + port;
+        }
+        return proto.toLowerCase() + "://" + trimTrailingSlash(h);
+    }
+
     private static String generateRandom256bit() {
         byte[] b = new byte[32];
         new SecureRandom().nextBytes(b);
@@ -321,7 +370,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
      */
     private static final class RedirectResolution {
         final String baseUrl;
-        final String source; // CONFIG | X_FORWARDED | ERROR
+        final String source; // CONFIG | X_FORWARDED | X_FORWARDED_OVERRIDE_LOCALHOST | ERROR
 
         RedirectResolution(String baseUrl, String source) {
             this.baseUrl = baseUrl == null ? null : trimTrailingSlash(baseUrl);

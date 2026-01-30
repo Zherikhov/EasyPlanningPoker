@@ -33,6 +33,18 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping(path = "/api/v1/auth", produces = MediaType.APPLICATION_JSON_VALUE)
+/**
+ * Authentication REST controller providing:
+ * - Email/password login
+ * - Email/password registration
+ * - Access token refresh using HttpOnly refresh cookie
+ * - Logout with refresh session revocation and cookie cleanup
+ *
+ * Design goals:
+ * - Use repository methods tailored for normalized email lookups for efficiency.
+ * - Set refresh cookies with safe defaults (HttpOnly, configurable Secure and SameSite).
+ * - Keep implementation concise and readable.
+ */
 public class AuthController {
 
     private final UserJpaRepository users;
@@ -43,6 +55,7 @@ public class AuthController {
     private final long refreshTtlDays;
     private final String refreshCookieName;
     private final boolean cookieSecure;
+    private final String cookieSameSite;
 
     public AuthController(UserJpaRepository users,
                           JwtService jwtService,
@@ -51,7 +64,8 @@ public class AuthController {
                           @Value("${security.jwt.access-ttl-seconds:900}") long accessTtlSeconds,
                           @Value("${security.jwt.refresh-ttl-days:30}") long refreshTtlDays,
                           @Value("${security.jwt.refresh-cookie-name:pp-refresh}") String refreshCookieName,
-                          @Value("${security.cookie.secure:false}") boolean cookieSecure) {
+                          @Value("${security.cookie.secure:false}") boolean cookieSecure,
+                          @Value("${security.cookie.same-site:Lax}") String cookieSameSite) {
         this.users = users;
         this.jwtService = jwtService;
         this.sessions = sessions;
@@ -60,6 +74,7 @@ public class AuthController {
         this.refreshTtlDays = refreshTtlDays;
         this.refreshCookieName = refreshCookieName;
         this.cookieSecure = cookieSecure;
+        this.cookieSameSite = normalizeSameSite(cookieSameSite);
     }
 
     public record LoginRequest(@Email @NotBlank String email, @NotBlank String password) {}
@@ -73,11 +88,13 @@ public class AuthController {
 
     @PostMapping(path = "/login", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Transactional
+    /**
+     * Performs email/password login.
+     * Returns an access token in the response body and sets a refresh token in an HttpOnly cookie.
+     */
     public AuthResponse login(@Valid @RequestBody LoginRequest req, HttpServletRequest request, HttpServletResponse response) {
         String norm = normalizeEmail(req.email());
-        Optional<UserEntity> opt = users.findAll().stream()
-                .filter(u -> norm.equals(u.getEmailNormalized()))
-                .findFirst();
+        Optional<UserEntity> opt = users.findByEmailNormalized(norm);
         UserEntity user = opt.orElseThrow(() -> new NotFoundException("User not found"));
         if (user.getPasswordHash() == null || !passwordEncoder.matches(req.password(), user.getPasswordHash())) {
             throw new ForbiddenException("Invalid credentials");
@@ -92,9 +109,13 @@ public class AuthController {
 
     @PostMapping(path = "/register", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Transactional
+    /**
+     * Registers a new user with email/password credentials.
+     * Returns an access token in the response body and sets a refresh token in an HttpOnly cookie.
+     */
     public AuthResponse register(@Valid @RequestBody RegisterRequest req, HttpServletRequest request, HttpServletResponse response) {
         String norm = normalizeEmail(req.email());
-        boolean exists = users.findAll().stream().anyMatch(u -> norm.equals(u.getEmailNormalized()));
+        boolean exists = users.existsByEmailNormalized(norm);
         if (exists) {
             throw new ForbiddenException("Email already registered");
         }
@@ -120,6 +141,9 @@ public class AuthController {
 
     @PostMapping(path = "/refresh")
     @Transactional(readOnly = true)
+    /**
+     * Issues a fresh access token if a valid (non-expired and non-revoked) refresh cookie is present.
+     */
     public RefreshResponse refresh(HttpServletRequest request, HttpServletResponse response) {
         String refresh = readRefreshCookie(request);
         if (refresh == null || refresh.isBlank()) {
@@ -139,6 +163,9 @@ public class AuthController {
 
     @PostMapping(path = "/logout")
     @Transactional
+    /**
+     * Logs the user out by revoking the current refresh session and clearing the refresh cookie.
+     */
     public Map<String, Object> logout(Authentication auth, HttpServletRequest request, HttpServletResponse response) {
         String refresh = readRefreshCookie(request);
         if (refresh != null && !refresh.isBlank()) {
@@ -155,11 +182,14 @@ public class AuthController {
         cookie.setPath("/");
         cookie.setMaxAge(0);
         response.addCookie(cookie);
-        response.addHeader("Set-Cookie", refreshCookieName + "=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax" + (cookieSecure ? "; Secure" : ""));
+        response.addHeader("Set-Cookie", refreshCookieName + "=; Path=/; HttpOnly; Max-Age=0; SameSite=" + cookieSameSite + (cookieSecure ? "; Secure" : ""));
         return Map.of("status", "ok");
     }
     // endregion
 
+    /**
+     * Creates a refresh session in the database and sets a secure HttpOnly cookie for it.
+     */
     private void issueRefreshSessionAndCookie(UserEntity user, HttpServletRequest request, HttpServletResponse response) {
         String refresh = generateRandom256bit();
         String hash = sha256(refresh);
@@ -178,7 +208,7 @@ public class AuthController {
         cookie.setPath("/");
         cookie.setMaxAge((int) (refreshTtlDays * 24 * 60 * 60));
         response.addCookie(cookie);
-        response.addHeader("Set-Cookie", refreshCookieName + "=" + refresh + "; Path=/; HttpOnly; Max-Age=" + cookie.getMaxAge() + "; SameSite=Lax" + (cookieSecure ? "; Secure" : ""));
+        response.addHeader("Set-Cookie", refreshCookieName + "=" + refresh + "; Path=/; HttpOnly; Max-Age=" + cookie.getMaxAge() + "; SameSite=" + cookieSameSite + (cookieSecure ? "; Secure" : ""));
     }
 
     private String readRefreshCookie(HttpServletRequest request) {
@@ -211,5 +241,13 @@ public class AuthController {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }
+    }
+
+    private static String normalizeSameSite(String v) {
+        if (v == null) return "Lax";
+        String s = v.trim();
+        if (s.equalsIgnoreCase("none")) return "None";
+        if (s.equalsIgnoreCase("strict")) return "Strict";
+        return "Lax";
     }
 }
