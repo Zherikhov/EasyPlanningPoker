@@ -38,6 +38,8 @@ export default function Vote() {
   }, [theme])
 
   const token = useMemo(() => (typeof window !== 'undefined' ? window.localStorage.getItem('pp-token') : null), [])
+  // Флаг, чтобы не создавать конкурентные запросы reloadState при частом опросе
+  const reloadingRef = useRef(false)
 
   // Загрузка профиля пользователя для тулбара (как на Boards)
   useEffect(() => {
@@ -130,14 +132,20 @@ export default function Vote() {
 
   const reloadState = async () => {
     if (!token) return
+    if (reloadingRef.current) return
+    reloadingRef.current = true
     try {
       const res = await fetch(`/api/v1/boards/${boardId}/vote/state`, { headers: { 'Authorization': `Bearer ${token}` } })
       if (res.status === 401) { navigate('/login', { replace: true }); return }
       if (res.ok) setState(await res.json())
-    } catch (_) {}
+    } catch (_) {
+      // игнорируем единичные ошибки сети при опросе
+    } finally {
+      reloadingRef.current = false
+    }
   }
 
-  // Лёгкое «реалтайм»-обновление: опрос состояния каждые 2 секунды, пока вкладка видима
+  // Лёгкое «реалтайм»-обновление: более частый опрос состояния (каждые 500 мс), пока вкладка видима
   useEffect(() => {
     if (!token) return
     let intervalId = null
@@ -147,7 +155,7 @@ export default function Vote() {
       intervalId = setInterval(() => {
         // чтобы не мешать действиям пользователя — берём актуальное состояние с сервера
         reloadState()
-      }, 2000)
+      }, 500)
     }
     const stop = () => {
       if (intervalId) {
@@ -160,11 +168,17 @@ export default function Vote() {
       if (document.visibilityState === 'visible') start()
       else stop()
     }
+    const onFocus = () => {
+      // Мгновенно подтягиваем состояние при возвращении к вкладке
+      reloadState()
+    }
 
     if (document.visibilityState === 'visible') start()
     document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', onFocus)
     return () => {
       document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('focus', onFocus)
       stop()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -219,6 +233,8 @@ export default function Vote() {
       if (res.ok) {
         const data = await res.json()
         setState(data)
+        // Подтягиваем актуальное состояние сразу после голоса
+        reloadState()
       }
     } catch (e) {
       setError(e.message || 'Не удалось отправить голос')
@@ -234,7 +250,10 @@ export default function Vote() {
         body: JSON.stringify({ revealed: !state.revealed })
       })
       if (res.status === 401) { navigate('/login', { replace: true }); return }
-      if (res.ok) setState(await res.json())
+      if (res.ok) {
+        setState(await res.json())
+        reloadState()
+      }
     } catch (e) {
       setError(e.message || 'Не удалось переключить раскрытие')
     }
@@ -248,7 +267,10 @@ export default function Vote() {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (res.status === 401) { navigate('/login', { replace: true }); return }
-      if (res.ok) setState(await res.json())
+      if (res.ok) {
+        setState(await res.json())
+        reloadState()
+      }
     } catch (e) {
       setError(e.message || 'Не удалось сбросить голоса')
     }

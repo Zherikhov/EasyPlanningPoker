@@ -17,6 +17,8 @@ import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.security.SecureRandom;
@@ -39,6 +41,9 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
     private final String refreshCookieName;
     private final boolean cookieSecure;
     private final String configuredFrontendBaseUrl;
+    private final boolean behindProxyEnabled;
+
+    private static final Logger log = LoggerFactory.getLogger(GoogleOAuth2SuccessHandler.class);
 
     public GoogleOAuth2SuccessHandler(UserJpaRepository users,
                                       AuthIdentityJpaRepository identities,
@@ -48,7 +53,8 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
                                       @Value("${security.jwt.refresh-ttl-days:30}") long refreshTtlDays,
                                       @Value("${security.jwt.refresh-cookie-name:pp-refresh}") String refreshCookieName,
                                       @Value("${security.cookie.secure:false}") boolean cookieSecure,
-                                      @Value("${app.frontend-url:http://localhost:5173}") String frontendBaseUrl) {
+                                      @Value("${app.frontend-url:}") String frontendBaseUrl,
+                                      @Value("${app.behind-proxy-enabled:false}") boolean behindProxyEnabled) {
         this.users = users;
         this.identities = identities;
         this.sessions = sessions;
@@ -58,6 +64,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         this.refreshCookieName = refreshCookieName;
         this.cookieSecure = cookieSecure;
         this.configuredFrontendBaseUrl = trimTrailingSlash(frontendBaseUrl);
+        this.behindProxyEnabled = behindProxyEnabled;
     }
 
     @Override
@@ -146,8 +153,22 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         response.addHeader("Set-Cookie", refreshCookieName + "=" + refresh + "; Path=/; HttpOnly; Max-Age=" + cookie.getMaxAge() + "; SameSite=Lax" + (cookieSecure ? "; Secure" : ""));
 
         // redirect back to SPA login handler (absolute URL)
-        String baseUrl = resolveFrontendBaseUrl(request);
+        var resolution = resolveFrontendBaseUrl(request);
+        if (resolution.baseUrl == null || resolution.baseUrl.isBlank()) {
+            // Явная конфигурационная ошибка — не редиректим на backend host.
+            String msg = "Frontend base URL is not configured. Set app.frontend-url or enable app.behind-proxy-enabled with proper X-Forwarded headers";
+            log.warn("OAuth2 redirect resolution failed: source={}, reason={}", resolution.source, msg);
+            response.setStatus(500);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":{\"code\":\"CONFIG_ERROR\",\"message\":\"" + msg + "\"}}\n");
+            return;
+        }
+
+        String baseUrl = resolution.baseUrl;
         String redirect = baseUrl + "/login?token=" + access;
+        // Логируем источник и конечный base URL (без полного токена)
+        String tokenPreview = access.length() > 12 ? access.substring(0, 12) + "…" : access;
+        log.info("OAuth2 redirect: source={}, baseUrl={}, tokenPreview={}", resolution.source, baseUrl, tokenPreview);
         response.sendRedirect(redirect);
     }
 
@@ -161,48 +182,31 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
      * Важно: предпочтение всегда отдается конфигурации, чтобы избежать редиректа на домен backend-а
      * (что приводит к попытке открыть /login на API и ошибкам вида INTERNAL_ERROR по пути /index.html).
      */
-    private String resolveFrontendBaseUrl(HttpServletRequest request) {
-        // 1) Origin/Referer (но доверяем только «своим» доменам)
-        String origin = safeOrigin(request.getHeader("Origin"));
-        if (origin == null) origin = safeOrigin(request.getHeader("Referer"));
-        if (origin != null && isTrustedFrontendOrigin(origin, request)) {
-            return trimTrailingSlash(origin);
-        }
-
-        // 2) Конфигурация приложения (самый надежный фолбэк)
+    private RedirectResolution resolveFrontendBaseUrl(HttpServletRequest request) {
+        // 1) Единственный источник истины — конфигурация, если задана
         if (configuredFrontendBaseUrl != null && !configuredFrontendBaseUrl.isBlank()) {
-            return configuredFrontendBaseUrl;
+            return new RedirectResolution(configuredFrontendBaseUrl, "CONFIG");
         }
 
-        // 3) X-Forwarded-*
-        String proto = headerOrNull(request, "X-Forwarded-Proto");
-        String host = headerOrNull(request, "X-Forwarded-Host");
-        String port = headerOrNull(request, "X-Forwarded-Port");
-        if (proto != null && host != null) {
-            String h = host;
-            if (port != null && !host.contains(":")) {
-                if (!("http".equalsIgnoreCase(proto) && "80".equals(port)) &&
-                    !("https".equalsIgnoreCase(proto) && "443".equals(port))) {
-                    h = host + ":" + port;
+        // 2) При разрешенном режиме за прокси — берем X-Forwarded-*
+        if (behindProxyEnabled) {
+            String proto = headerOrNull(request, "X-Forwarded-Proto");
+            String host = headerOrNull(request, "X-Forwarded-Host");
+            String port = headerOrNull(request, "X-Forwarded-Port");
+            if (proto != null && host != null) {
+                String h = host;
+                if (port != null && !host.contains(":")) {
+                    if (!("http".equalsIgnoreCase(proto) && "80".equals(port)) &&
+                            !("https".equalsIgnoreCase(proto) && "443".equals(port))) {
+                        h = host + ":" + port;
+                    }
                 }
+                return new RedirectResolution(proto.toLowerCase() + "://" + trimTrailingSlash(h), "X_FORWARDED");
             }
-            return proto.toLowerCase() + "://" + trimTrailingSlash(h);
         }
 
-        // 4) request scheme + host
-        String scheme = request.getScheme();
-        String serverName = request.getServerName();
-        int serverPort = request.getServerPort();
-        if (scheme != null && serverName != null) {
-            boolean isDefaultPort = ("http".equalsIgnoreCase(scheme) && serverPort == 80)
-                    || ("https".equalsIgnoreCase(scheme) && serverPort == 443)
-                    || serverPort <= 0;
-            String hostPort = serverName + (isDefaultPort ? "" : ":" + serverPort);
-            return scheme.toLowerCase() + "://" + hostPort;
-        }
-
-        // Последний резервый вариант — вернуть хотя бы конфигурацию (даже если пустая строка обработается выше)
-        return configuredFrontendBaseUrl;
+        // 3) Никаких фолбэков на текущий host (запрещено, чтобы не редиректить на backend)
+        return new RedirectResolution(null, "ERROR");
     }
 
     private static String headerOrNull(HttpServletRequest req, String name) {
@@ -310,5 +314,18 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
             return xff.split(",")[0].trim();
         }
         return Optional.ofNullable(request.getRemoteAddr()).orElse("");
+    }
+
+    /**
+     * Результат вычисления адреса редиректа и источник, откуда он получен.
+     */
+    private static final class RedirectResolution {
+        final String baseUrl;
+        final String source; // CONFIG | X_FORWARDED | ERROR
+
+        RedirectResolution(String baseUrl, String source) {
+            this.baseUrl = baseUrl == null ? null : trimTrailingSlash(baseUrl);
+            this.source = source;
+        }
     }
 }
