@@ -28,7 +28,8 @@ html,body{
 
 body{
   background:#050814;
-  overflow:hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* В светлой теме подложка страницы делается светлой, чтобы не было «чёрных полос» при любых смещениях */
