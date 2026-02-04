@@ -4,6 +4,7 @@ import com.easysprintpoker.domain.entity.AuthSessionEntity;
 import com.easysprintpoker.domain.entity.UserEntity;
 import com.easysprintpoker.infrastructure.persistence.repository.AuthSessionJpaRepository;
 import com.easysprintpoker.infrastructure.persistence.repository.UserJpaRepository;
+import com.easysprintpoker.infrastructure.security.AuthUtils;
 import com.easysprintpoker.infrastructure.web.errors.NotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
-
 @RestController
 @RequestMapping(path = "/api/v1/users", produces = MediaType.APPLICATION_JSON_VALUE)
 public class UsersController {
@@ -31,23 +31,9 @@ public class UsersController {
         this.authSessions = authSessions;
     }
 
-    private UUID getUserId(Authentication authentication) {
-        if (authentication == null || authentication.getPrincipal() == null) {
-            return null;
-        }
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof java.util.Map<?,?> map) {
-            Object val = map.get("userId");
-            if (val != null) {
-                try { return UUID.fromString(val.toString()); } catch (Exception ignore) {}
-            }
-        }
-        return null;
-    }
-
     @GetMapping("/me")
     public UserProfileResponse me(Authentication auth) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         UserEntity user = users.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
         return UserProfileResponse.from(user);
@@ -57,7 +43,7 @@ public class UsersController {
     public AuthSessionsPageResponse mySessions(Authentication auth,
                                                @RequestParam(name = "page", defaultValue = "0") int page,
                                                @RequestParam(name = "size", defaultValue = "20") int size) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         if (size > 100) size = 100;
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));

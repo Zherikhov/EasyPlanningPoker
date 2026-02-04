@@ -11,6 +11,7 @@ import com.easysprintpoker.infrastructure.persistence.repository.BoardAccessLink
 import com.easysprintpoker.infrastructure.persistence.repository.BoardJpaRepository;
 import com.easysprintpoker.infrastructure.persistence.repository.BoardMembershipJpaRepository;
 import com.easysprintpoker.infrastructure.persistence.repository.UserJpaRepository;
+import com.easysprintpoker.infrastructure.security.AuthUtils;
 import com.easysprintpoker.infrastructure.web.errors.ForbiddenException;
 import com.easysprintpoker.infrastructure.web.errors.NotFoundException;
 import org.springframework.data.domain.Page;
@@ -47,20 +48,6 @@ public class BoardsController {
         this.users = users;
     }
 
-    private UUID getUserId(Authentication authentication) {
-        if (authentication == null || authentication.getPrincipal() == null) {
-            return null;
-        }
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof java.util.Map<?,?> map) {
-            Object val = map.get("userId");
-            if (val != null) {
-                try { return UUID.fromString(val.toString()); } catch (Exception ignore) {}
-            }
-        }
-        return null;
-    }
-
     // 5.1 GET /boards
     @GetMapping
     public BoardsPageResponse list(Authentication auth,
@@ -68,7 +55,7 @@ public class BoardsController {
                                    @RequestParam(name = "page", defaultValue = "0") int page,
                                    @RequestParam(name = "size", defaultValue = "20") int size,
                                    @RequestParam(name = "search", required = false) String search) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         if (size > 100) size = 100;
         page = Math.max(0, page);
@@ -115,7 +102,7 @@ public class BoardsController {
     // 5.x GET /boards/{id}/summary — краткие детали (для страницы голосования по id)
     @GetMapping("/{id}/summary")
     public BoardSummaryResponse getBoardSummary(Authentication auth, @PathVariable("id") UUID id) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         BoardEntity board = boards.findById(id).orElseThrow(() -> new NotFoundException("Board not found"));
         // Требование: авторизованные пользователи могут открывать чужие доски для голосования,
@@ -127,7 +114,7 @@ public class BoardsController {
     // 5.3 GET /boards/{boardKey}
     @GetMapping("/{boardKey}")
     public BoardDetailsResponse getByKey(@PathVariable String boardKey, Authentication auth) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         BoardEntity board = boards.findByKey(boardKey).orElseThrow(() -> new NotFoundException("Board not found"));
 
@@ -200,7 +187,7 @@ public class BoardsController {
     // 5.x POST /boards — создание доски текущим пользователем
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public BoardSummaryResponse create(Authentication auth, @RequestBody CreateBoardRequest req) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         String name = Optional.ofNullable(req.name).map(String::trim).orElse("");
         if (name.length() < 2) throw new IllegalArgumentException("Name is too short");

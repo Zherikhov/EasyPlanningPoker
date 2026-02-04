@@ -6,6 +6,7 @@ import com.easysprintpoker.domain.enums.MembershipStatus;
 import com.easysprintpoker.domain.enums.ParticipantType;
 import com.easysprintpoker.domain.enums.SessionRole;
 import com.easysprintpoker.infrastructure.persistence.repository.*;
+import com.easysprintpoker.infrastructure.security.AuthUtils;
 import com.easysprintpoker.infrastructure.web.errors.ForbiddenException;
 import com.easysprintpoker.infrastructure.web.errors.NotFoundException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -51,18 +52,6 @@ public class VoteController {
         this.scaleRepo = scaleRepo;
         this.votes = votes;
         this.json = json;
-    }
-
-    private UUID getUserId(Authentication authentication) {
-        if (authentication == null || authentication.getPrincipal() == null) return null;
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof Map<?,?> map) {
-            Object val = map.get("userId");
-            if (val != null) {
-                try { return UUID.fromString(val.toString()); } catch (Exception ignore) {}
-            }
-        }
-        return null;
     }
 
     private Map<String, Object> parseSettings(String jsonStr) {
@@ -164,7 +153,7 @@ public class VoteController {
     // GET state
     @GetMapping("/state")
     public VoteStateResponse getState(Authentication auth, @PathVariable("boardId") UUID boardId) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         BoardEntity board = boards.findById(boardId).orElseThrow(() -> new NotFoundException("Board not found"));
         // Разрешаем доступ любому аутентифицированному пользователю (требование задачи)
@@ -262,7 +251,7 @@ public class VoteController {
     public VoteStateResponse castVote(Authentication auth,
                                       @PathVariable("boardId") UUID boardId,
                                       @RequestBody VoteRequest req) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         BoardEntity board = boards.findById(boardId).orElseThrow(() -> new NotFoundException("Board not found"));
         // Разрешаем голосование любому аутентифицированному пользователю
@@ -323,7 +312,7 @@ public class VoteController {
     @PostMapping(path = "/join")
     @Transactional
     public VoteStateResponse join(Authentication auth, @PathVariable("boardId") UUID boardId) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         BoardEntity board = boards.findById(boardId).orElseThrow(() -> new NotFoundException("Board not found"));
 
@@ -352,7 +341,7 @@ public class VoteController {
     public VoteStateResponse toggleReveal(Authentication auth,
                                           @PathVariable("boardId") UUID boardId,
                                           @RequestBody(required = false) RevealRequest req) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         BoardEntity board = boards.findById(boardId).orElseThrow(() -> new NotFoundException("Board not found"));
         if (!canModerate(board, userId)) throw new ForbiddenException("No permission to reveal");
@@ -400,7 +389,7 @@ public class VoteController {
     @PostMapping(path = "/reset")
     @Transactional
     public VoteStateResponse resetVotes(Authentication auth, @PathVariable("boardId") UUID boardId) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         BoardEntity board = boards.findById(boardId).orElseThrow(() -> new NotFoundException("Board not found"));
         if (!canModerate(board, userId)) throw new ForbiddenException("No permission to reset");
@@ -435,7 +424,7 @@ public class VoteController {
     public VoteStateResponse kick(Authentication auth,
                                   @PathVariable("boardId") UUID boardId,
                                   @PathVariable("userId") UUID targetUserId) {
-        UUID userId = getUserId(auth);
+        UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
         BoardEntity board = boards.findById(boardId).orElseThrow(() -> new NotFoundException("Board not found"));
         if (!canModerate(board, userId)) throw new ForbiddenException("No permission to kick");
