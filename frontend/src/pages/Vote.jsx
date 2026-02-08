@@ -553,7 +553,8 @@ export default function Vote() {
             <div className="participantsGrid" style={{marginTop:12, display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:12}}>
               {participants.map(p => {
                 const hasVote = !!p.voted
-                const display = revealed ? (p.value ?? '—') : (hasVote ? '●' : '—')
+                const showCheck = !revealed && hasVote
+                const display = revealed ? (p.value ?? '—') : (hasVote ? '' : '—')
                 // Всегда используем avatarUrl, пришедший с сервера для каждого участника,
                 // без локальной подмены по совпадению имени, чтобы исключить рассинхрон между пользователями
                 const pAvatarUrl = p?.avatarUrl || null
@@ -570,8 +571,28 @@ export default function Vote() {
                       <div className="name" title={p.name} style={{fontSize:14, fontWeight:800, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%'}}>{p.name}</div>
                     </div>
                     <div style={{display:'flex', alignItems:'center', gap:8}}>
-                      <div className={`voteChip${revealed ? '' : ' hidden'}`} style={{minWidth:46, height:34, borderRadius:12, border:'1px solid var(--border)', display:'grid', placeItems:'center', fontWeight:950, fontSize:16, background:'rgba(255,255,255,.03)', color:!revealed ? 'rgba(156,163,175,.75)' : undefined}}>
-                        {display}
+                      <div
+                        className={`voteChip${revealed ? '' : ' hidden'}`}
+                        style={{
+                          minWidth:46,
+                          height:34,
+                          borderRadius:12,
+                          border:'1px solid var(--border)',
+                          display:'grid',
+                          placeItems:'center',
+                          fontWeight:950,
+                          fontSize:16,
+                          background:'rgba(255,255,255,.03)',
+                          color: showCheck ? '#22c55e' : (!revealed ? 'rgba(156,163,175,.75)' : undefined)
+                        }}
+                      >
+                        {showCheck ? (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        ) : (
+                          display
+                        )}
                       </div>
                       {/* Кнопка удаления участника доступна модератору; скрываем для самого себя и когда нет userId (напр. гость) */}
                       {state?.permissions?.canReveal && p.userId && profile?.id !== p.userId && (
