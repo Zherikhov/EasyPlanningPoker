@@ -668,7 +668,6 @@ export default function Vote() {
 
           <div style={{marginTop:16}}>
             <button className="btn btn--ghost" type="button" onClick={()=>navigate('/boards')}>Back to boards</button>
-            <button className="btn btn--ghost" type="button" onClick={reloadState} style={{marginLeft:8}}>Refresh</button>
           </div>
         </div>
       </main>

@@ -15,6 +15,7 @@ export default function Boards() {
   const [boards, setBoards] = useState([])
   const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   // Pin to top удалён по требованиям
@@ -208,8 +209,19 @@ export default function Boards() {
     return sorted
   }, [boards])
 
-  const openCreate = () => setCreateOpen(true)
-  const closeCreate = () => setCreateOpen(false)
+  const openCreate = () => {
+    setIsClosing(false)
+    setCreateOpen(true)
+  }
+  const closeCreate = () => {
+    setIsClosing(true)
+  }
+  const onAnimationEnd = () => {
+    if (isClosing) {
+      setCreateOpen(false)
+      setIsClosing(false)
+    }
+  }
   const confirmCreate = async () => {
     const name = (newName||'').trim()
     if (name.length < 2) return
@@ -230,7 +242,7 @@ export default function Boards() {
       if (!res.ok) throw new Error('Failed to create board')
       // Перезагрузим список
       setNewName(''); setNewDesc('')
-      setCreateOpen(false)
+      setIsClosing(true)
       // триггерим перезагрузку через изменение search (или можно напрямую загрузить)
       // здесь перезагрузим напрямую
       const url = new URL('/api/v1/boards', window.location.origin)
@@ -374,18 +386,15 @@ export default function Boards() {
           </section>
 
           {createOpen && (
-            <section className="createPanel">
+            <section
+              className={`createPanel ${isClosing ? 'createPanel--closing' : ''}`}
+              onAnimationEnd={onAnimationEnd}
+            >
               <div className="createPanel__head">
                 <div>
                   <div className="createPanel__title">Create board</div>
                   <div className="createPanel__subtitle">Name it so your team can find it quickly.</div>
                 </div>
-                <button className="iconBtn" type="button" aria-label="Close create panel" onClick={closeCreate}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    <path d="M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                </button>
               </div>
               <div className="createPanel__body">
                 <label className="field">
