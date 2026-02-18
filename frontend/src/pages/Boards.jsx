@@ -29,6 +29,9 @@ export default function Boards() {
   const [langOpen, setLangOpen] = useState(false)
   const langDdRef = useRef(null)
 
+  // Выпадающее меню на карточке доски (шестерёнка)
+  const [openCardMenuId, setOpenCardMenuId] = useState(null)
+
   useEffect(() => {
     const token = window.localStorage.getItem('pp-token')
     if (!token) {
@@ -112,6 +115,27 @@ export default function Boards() {
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [langOpen])
+
+  // Закрытие меню карточек (шестерёнка) по клику вне и по Esc
+  useEffect(() => {
+    const onDocMouseDown = (e) => {
+      if (openCardMenuId == null) return
+      const el = e.target
+      // если клик по кнопке или внутри меню — игнор
+      if (el && (el.closest && (el.closest('.cardMenuBtn') || el.closest('.cardMenu')))) return
+      setOpenCardMenuId(null)
+    }
+    const onKeyDown = (e) => {
+      if (openCardMenuId == null) return
+      if (e.key === 'Escape') setOpenCardMenuId(null)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [openCardMenuId])
 
   const onLogout = async () => {
     const token = window.localStorage.getItem('pp-token')
@@ -443,6 +467,31 @@ export default function Boards() {
                   <article key={b.id} className="boardCard" role="button" tabIndex={0} aria-label={`Open board ${b.name}`}
                            onClick={()=>{ navigate(`/boards/${b.id}/vote`) }}
                            onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); navigate(`/boards/${b.id}/vote`) } }}>
+                    {/* Кнопка-шестерёнка */}
+                    <button
+                      type="button"
+                      className="cardMenuBtn"
+                      aria-haspopup="menu"
+                      aria-expanded={openCardMenuId === b.id}
+                      title="Board actions"
+                      onClick={(e)=>{ e.stopPropagation(); setOpenCardMenuId(prev => prev === b.id ? null : b.id) }}
+                      onKeyDown={(e)=>{ e.stopPropagation(); if(e.key==='Enter' || e.key===' '){ e.preventDefault(); setOpenCardMenuId(prev => prev === b.id ? null : b.id) } }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
+
+                    {/* Выпадающее меню карточки */}
+                    {openCardMenuId === b.id && (
+                      <div className="cardMenu" role="menu" onClick={(e)=> e.stopPropagation()}>
+                        <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); /* навигация на настройки в будущем */ }}>Settings</button>
+                        <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); /* поделиться — фронтовая заглушка */ alert('Share link copied (demo)') }}>Share</button>
+                        <button className="cardMenu__item cardMenu__item--danger" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); /* удаление — заглушка */ alert('Delete action (frontend only)') }}>Delete</button>
+                      </div>
+                    )}
+
                     <h3 className="boardCard__title">{b.name || 'Untitled board'}</h3>
                     <p className="boardCard__desc">{b.description || 'No description'}</p>
                     <div className="boardMeta">
