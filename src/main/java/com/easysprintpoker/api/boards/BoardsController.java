@@ -20,13 +20,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -149,42 +143,6 @@ public class BoardsController {
         return BoardDetailsResponse.from(board, members, links);
     }
 
-    // DTOs
-    public record BoardsPageResponse(int page, int size, long total, List<BoardSummaryResponse> items) {}
-
-    public record BoardSummaryResponse(UUID id, String key, String name, String description, String visibility,
-                                       OffsetDateTime lastUsedAt, long participantsCount) {
-        public static BoardSummaryResponse from(BoardEntity b, BoardMembershipJpaRepository memberships) {
-            long cnt = memberships.countActiveByBoard_Id(b.getId());
-            return new BoardSummaryResponse(b.getId(), b.getKey(), b.getName(), b.getDescription(),
-                    b.getVisibility().name(), b.getLastUsedAt(), cnt);
-        }
-    }
-
-    public record BoardDetailsResponse(UUID id, String key, String name, String description, String visibility,
-                                       OffsetDateTime createdAt, OffsetDateTime updatedAt, OffsetDateTime lastUsedAt,
-                                       List<MemberResponse> members, List<AccessLinkResponse> accessLinks) {
-        public static BoardDetailsResponse from(BoardEntity b, List<MemberResponse> members, List<AccessLinkResponse> links) {
-            return new BoardDetailsResponse(b.getId(), b.getKey(), b.getName(), b.getDescription(), b.getVisibility().name(),
-                    b.getCreatedAt(), b.getUpdatedAt(), b.getLastUsedAt(), members, links);
-        }
-    }
-
-    public record MemberResponse(UUID userId, String role, String status, OffsetDateTime joinedAt) {
-        public static MemberResponse from(BoardMembershipEntity m) {
-            return new MemberResponse(m.getUser().getId(), m.getRole().name(), m.getStatus().name(), m.getJoinedAt());
-        }
-    }
-
-    public record AccessLinkResponse(UUID id, String role, String label, OffsetDateTime expiresAt, Integer maxUses,
-                                     Integer usesCount, OffsetDateTime revokedAt, OffsetDateTime createdAt) {
-        public static AccessLinkResponse from(BoardAccessLinkEntity e) {
-            return new AccessLinkResponse(e.getId(), e.getRole().name(), e.getLabel(), e.getExpiresAt(), e.getMaxUses(),
-                    e.getUsesCount(), e.getRevokedAt(), e.getCreatedAt());
-        }
-    }
-
-    // 5.x POST /boards — создание доски текущим пользователем
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public BoardSummaryResponse create(Authentication auth, @RequestBody CreateBoardRequest req) {
         UUID userId = AuthUtils.getUserId(auth);
@@ -216,6 +174,53 @@ public class BoardsController {
         return BoardSummaryResponse.from(saved, memberships);
     }
 
+    @DeleteMapping("/{id}")
+    public void delete(Authentication auth, @PathVariable UUID id) {
+        UUID userId = AuthUtils.getUserId(auth);
+        if (userId == null) throw new NotFoundException("User not found");
+        BoardEntity board = boards.findById(id).orElseThrow(() -> new NotFoundException("Board not found"));
+        if (!board.getOwner().getId().equals(userId)) throw new ForbiddenException("No permission to delete");
+        board.setDeletedAt(OffsetDateTime.now().withNano(0));
+        boards.save(board);
+    }
+
+    // DTOs
+    public record BoardsPageResponse(int page, int size, long total, List<BoardSummaryResponse> items) {
+    }
+
+    public record BoardSummaryResponse(UUID id, String key, String name, String description, String visibility,
+                                       OffsetDateTime lastUsedAt, long participantsCount) {
+        public static BoardSummaryResponse from(BoardEntity b, BoardMembershipJpaRepository memberships) {
+            long cnt = memberships.countActiveByBoard_Id(b.getId());
+            return new BoardSummaryResponse(b.getId(), b.getKey(), b.getName(), b.getDescription(),
+                    b.getVisibility().name(), b.getLastUsedAt(), cnt);
+        }
+    }
+
+    public record BoardDetailsResponse(UUID id, String key, String name, String description, String visibility,
+                                       OffsetDateTime createdAt, OffsetDateTime updatedAt, OffsetDateTime lastUsedAt,
+                                       List<MemberResponse> members, List<AccessLinkResponse> accessLinks) {
+        public static BoardDetailsResponse from(BoardEntity b, List<MemberResponse> members, List<AccessLinkResponse> links) {
+            return new BoardDetailsResponse(b.getId(), b.getKey(), b.getName(), b.getDescription(), b.getVisibility().name(),
+                    b.getCreatedAt(), b.getUpdatedAt(), b.getLastUsedAt(), members, links);
+        }
+    }
+
+    public record MemberResponse(UUID userId, String role, String status, OffsetDateTime joinedAt) {
+        public static MemberResponse from(BoardMembershipEntity m) {
+            return new MemberResponse(m.getUser().getId(), m.getRole().name(), m.getStatus().name(), m.getJoinedAt());
+        }
+    }
+
+    public record AccessLinkResponse(UUID id, String role, String label, OffsetDateTime expiresAt, Integer maxUses,
+                                     Integer usesCount, OffsetDateTime revokedAt, OffsetDateTime createdAt) {
+        public static AccessLinkResponse from(BoardAccessLinkEntity e) {
+            return new AccessLinkResponse(e.getId(), e.getRole().name(), e.getLabel(), e.getExpiresAt(), e.getMaxUses(),
+                    e.getUsesCount(), e.getRevokedAt(), e.getCreatedAt());
+        }
+
+    }
+
     private String generateUniqueKey() {
         // Пытаемся несколько раз сгенерировать короткий ключ
         for (int i = 0; i < 10; i++) {
@@ -229,5 +234,6 @@ public class BoardsController {
         return UUID.randomUUID().toString();
     }
 
-    public record CreateBoardRequest(String name, String description) {}
+    public record CreateBoardRequest(String name, String description) {
+    }
 }

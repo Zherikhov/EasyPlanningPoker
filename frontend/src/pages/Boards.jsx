@@ -288,6 +288,25 @@ export default function Boards() {
     }
   }
 
+  const confirmDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this board?')) return
+    const token = window.localStorage.getItem('pp-token')
+    try {
+      const res = await fetch(`/api/v1/boards/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (res.status === 401) {
+        navigate('/login', { replace: true })
+        return
+      }
+      if (!res.ok) throw new Error('Failed to delete board')
+      setBoards(prev => prev.filter(b => b.id !== id))
+    } catch (e) {
+      setError(e.message || 'Ошибка удаления')
+    }
+  }
+
   return (
     <div className={`pp-root theme-${theme}`}>
       <header className="topbar">
@@ -488,7 +507,7 @@ export default function Boards() {
                       <div className="cardMenu" role="menu" onClick={(e)=> e.stopPropagation()}>
                         <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); /* навигация на настройки в будущем */ }}>Settings</button>
                         <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); /* поделиться — фронтовая заглушка */ alert('Share link copied (demo)') }}>Share</button>
-                        <button className="cardMenu__item cardMenu__item--danger" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); /* удаление — заглушка */ alert('Delete action (frontend only)') }}>Delete</button>
+                        <button className="cardMenu__item cardMenu__item--danger" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); confirmDelete(b.id) }}>Delete</button>
                       </div>
                     )}
 
