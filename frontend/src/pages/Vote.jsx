@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import '../styles/demo-auth.css'
+import ProfileDialog from '../components/ProfileDialog.jsx'
 
 export default function Vote() {
   const navigate = useNavigate()
@@ -198,9 +199,10 @@ export default function Vote() {
     navigate('/login', { replace: true })
   }
 
+  const [showProfile, setShowProfile] = useState(false)
   const goProfile = () => {
     setMenuOpen(false)
-    navigate('/profile')
+    setShowProfile(true)
   }
 
   const userName = useMemo(() => {
@@ -671,6 +673,9 @@ export default function Vote() {
           </div>
         </div>
       </main>
+      {showProfile && (
+        <ProfileDialog open={showProfile} onClose={() => setShowProfile(false)} />
+      )}
     </div>
   )
 }

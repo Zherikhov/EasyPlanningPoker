@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/demo-auth.css'
+import ProfileDialog from '../components/ProfileDialog.jsx'
 
 export default function Boards() {
   const navigate = useNavigate()
@@ -173,9 +174,10 @@ export default function Boards() {
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
 
+  const [showProfile, setShowProfile] = useState(false)
   const goProfile = () => {
     setMenuOpen(false)
-    navigate('/profile')
+    setShowProfile(true)
   }
 
   // ---------- Boards helpers ----------
@@ -524,6 +526,9 @@ export default function Boards() {
           </section>
         </div>
       </main>
+      {showProfile && (
+        <ProfileDialog open={showProfile} onClose={() => setShowProfile(false)} />
+      )}
     </div>
   )
 }
