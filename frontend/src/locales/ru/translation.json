@@ -98,5 +98,82 @@
     "minAgo": "мин. назад",
     "hoursAgo": "час. назад",
     "daysAgo": "дн. назад"
+  },
+  "boardSettings": {
+    "title": "Настройки доски",
+    "tabs": {
+      "general": "Основные",
+      "tools": "Инструменты",
+      "members": "Участники",
+      "links": "Ссылки доступа",
+      "danger": "Опасная зона"
+    },
+    "general": {
+      "title": "Основная информация",
+      "boardName": "Название доски",
+      "description": "Описание",
+      "noDescription": "Нет описания",
+      "key": "Ключ",
+      "visibility": "Видимость",
+      "createdAt": "Дата создания"
+    },
+    "tools": {
+      "title": "Инструменты доски",
+      "description": "Настройте дополнительные инструменты и интеграции для этой доски.",
+      "votingDeck": "Колода для голосования",
+      "votingDeckDesc": "Стандартная Фибоначчи, футболки и т.д.",
+      "integrations": "Интеграции",
+      "integrationsDesc": "Подключите Jira, Slack или Trello.",
+      "configure": "Настроить",
+      "connect": "Подключить"
+    },
+    "members": {
+      "title": "Участники",
+      "joined": "Присоединился",
+      "noMembers": "Участники не найдены."
+    },
+    "links": {
+      "title": "Ссылки доступа",
+      "unnamedLink": "Ссылка без названия",
+      "uses": "Использования",
+      "noLinks": "Ссылки доступа не созданы."
+    },
+    "danger": {
+      "title": "Опасная зона",
+      "description": "Критически важные действия для этой доски. Будьте осторожны.",
+      "archiveBtn": "Архивировать доску"
+    },
+    "errors": {
+      "loading": "Загрузка...",
+      "loadFailed": "Ошибка при загрузке данных доски."
+    }
+  },
+  "share": {
+    "title": "Поделиться доской",
+    "inviteText": "Пригласите других на доску <strong>{{boardName}}</strong>, отправив им эту ссылку.",
+    "copyBtn": "Копировать",
+    "copiedBtn": "Скопировано!",
+    "inviteEmail": "Пригласить по email",
+    "emailPlaceholder": "Введите email",
+    "inviteUserId": "Пригласить по User ID",
+    "userIdPlaceholder": "Введите UUID пользователя",
+    "inviteBtn": "Пригласить",
+    "selectRole": "Выберите роль",
+    "roles": {
+      "admin": "Админ",
+      "facilitator": "Фасилитатор",
+      "member": "Участник",
+      "viewer": "Зритель"
+    },
+    "hint": "Любой, у кого есть эта ссылка, может присоединиться и участвовать в голосовании.",
+    "errors": {
+      "loginRequired": "Вы должны быть авторизованы",
+      "emailRequired": "Требуется email",
+      "invalidEmail": "Некорректный формат email",
+      "userIdRequired": "Требуется User ID",
+      "invalidUserId": "Некорректный формат User ID (ожидается UUID)",
+      "inviteFailed": "Не удалось пригласить пользователя",
+      "inviteSuccess": "Пользователь {{name}} успешно приглашен"
+    }
   }
 }

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export default function ShareDialog({ open, onClose, boardId, boardName }) {
+  const { t } = useTranslation()
   const dialogRef = useRef(null)
   const [copied, setCopied] = useState(false)
   const [email, setEmail] = useState('')
@@ -49,7 +51,7 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
     setStatusMsg(null)
     const token = localStorage.getItem('pp-token')
     if (!token) {
-      setStatusMsg({ type: 'error', text: 'You must be logged in' })
+      setStatusMsg({ type: 'error', text: t('share.errors.loginRequired', 'You must be logged in') })
       return
     }
 
@@ -57,12 +59,12 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
     if (type === 'email') {
       const trimmedEmail = email.trim()
       if (!trimmedEmail) {
-        setStatusMsg({ type: 'error', text: 'Email is required' })
+        setStatusMsg({ type: 'error', text: t('share.errors.emailRequired', 'Email is required') })
         return
       }
       // Simple email validation
       if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
-        setStatusMsg({ type: 'error', text: 'Invalid email format' })
+        setStatusMsg({ type: 'error', text: t('share.errors.invalidEmail', 'Invalid email format') })
         return
       }
       body.email = trimmedEmail
@@ -70,12 +72,12 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
     } else {
       const trimmedUserId = userIdInput.trim()
       if (!trimmedUserId) {
-        setStatusMsg({ type: 'error', text: 'User ID is required' })
+        setStatusMsg({ type: 'error', text: t('share.errors.userIdRequired', 'User ID is required') })
         return
       }
       // UUID validation
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedUserId)) {
-        setStatusMsg({ type: 'error', text: 'Invalid User ID format (UUID expected)' })
+        setStatusMsg({ type: 'error', text: t('share.errors.invalidUserId', 'Invalid User ID format (UUID expected)') })
         return
       }
       body.userId = trimmedUserId
@@ -95,10 +97,10 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.message || 'Failed to invite user')
+        throw new Error(errData.message || t('share.errors.inviteFailed', 'Failed to invite user'))
       }
 
-      setStatusMsg({ type: 'success', text: `Successfully invited ${type === 'email' ? body.email : body.userId}` })
+      setStatusMsg({ type: 'success', text: t('share.errors.inviteSuccess', 'Successfully invited {{name}}', { name: type === 'email' ? body.email : body.userId }) })
       if (type === 'email') setEmail('')
       else setUserIdInput('')
     } catch (err) {
@@ -124,21 +126,19 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
         className="modal modal--share"
         role="dialog"
         aria-modal="true"
-        aria-label="Share board"
+        aria-label={t('share.title', 'Share board')}
         ref={dialogRef}
       >
         <div className="modal__head">
-          <div className="modal__title">Share board</div>
-          <button type="button" className="iconBtn" aria-label="Close" onClick={onClose}>
+          <div className="modal__title">{t('share.title', 'Share board')}</div>
+          <button type="button" className="iconBtn" aria-label={t('common.close', 'Close')} onClick={onClose}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </button>
         </div>
         <div className="modal__body shareModal">
-          <p className="shareModal__text">
-            Invite others to <strong>{boardName || 'the board'}</strong> by sharing this link.
-          </p>
+          <p className="shareModal__text" dangerouslySetInnerHTML={{ __html: t('share.inviteText', 'Invite others to <strong>{{boardName}}</strong> by sharing this link.', { boardName: boardName || t('boards.untitled', 'Untitled board') }) }} />
           <div className="shareField">
             <input
               type="text"
@@ -152,17 +152,17 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
               className={`btn ${copied ? 'btn--success' : 'btn--primary'} shareField__btn`}
               onClick={handleCopy}
             >
-              {copied ? 'Copied!' : 'Copy'}
+              {copied ? t('share.copiedBtn', 'Copied!') : t('share.copyBtn', 'Copy')}
             </button>
           </div>
 
           <div className="shareInvite">
-            <div className="shareInvite__title">Invite by email</div>
+            <div className="shareInvite__title">{t('share.inviteEmail', 'Invite by email')}</div>
             <div className="shareInvite__row">
               <label className="field shareInvite__field">
                 <input
                   type="email"
-                  placeholder="Enter email address"
+                  placeholder={t('share.emailPlaceholder', 'Enter email address')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
@@ -178,9 +178,9 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
                     aria-expanded={emailRoleOpen}
                     onClick={() => setEmailRoleOpen(!emailRoleOpen)}
                     disabled={loading}
-                    title="Select role"
-                  >
-                    {emailRole.charAt(0) + emailRole.slice(1).toLowerCase()}
+                    title={t('share.selectRole', 'Select role')}
+                    >
+                      {t(`share.roles.${emailRole.toLowerCase()}`, emailRole.charAt(0) + emailRole.slice(1).toLowerCase())}
                     <span className="langDropdown__chevron" aria-hidden="true">▾</span>
                   </button>
                   {emailRoleOpen && (
@@ -195,7 +195,7 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
                           onClick={() => { setEmailRole(r); setEmailRoleOpen(false); }}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setEmailRole(r); setEmailRoleOpen(false); } }}
                         >
-                          {r.charAt(0) + r.slice(1).toLowerCase()}
+                          {t(`share.roles.${r.toLowerCase()}`, r.charAt(0) + r.slice(1).toLowerCase())}
                         </li>
                       ))}
                     </ul>
@@ -208,18 +208,18 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
                 disabled={!email || loading}
                 onClick={() => handleInvite('email')}
               >
-                {loading ? '...' : 'Invite'}
+                {loading ? '...' : t('share.inviteBtn', 'Invite')}
               </button>
             </div>
           </div>
 
           <div className="shareInvite" style={{ marginTop: 16, paddingTop: 16 }}>
-            <div className="shareInvite__title">Invite by User ID</div>
+            <div className="shareInvite__title">{t('share.inviteUserId', 'Invite by User ID')}</div>
             <div className="shareInvite__row">
               <label className="field shareInvite__field">
                 <input
                   type="text"
-                  placeholder="Enter user UUID"
+                  placeholder={t('share.userIdPlaceholder', 'Enter user UUID')}
                   value={userIdInput}
                   onChange={(e) => setUserIdInput(e.target.value)}
                   disabled={loading}
@@ -235,9 +235,9 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
                     aria-expanded={userRoleOpen}
                     onClick={() => setUserRoleOpen(!userRoleOpen)}
                     disabled={loading}
-                    title="Select role"
-                  >
-                    {userRole.charAt(0) + userRole.slice(1).toLowerCase()}
+                    title={t('share.selectRole', 'Select role')}
+                    >
+                      {t(`share.roles.${userRole.toLowerCase()}`, userRole.charAt(0) + userRole.slice(1).toLowerCase())}
                     <span className="langDropdown__chevron" aria-hidden="true">▾</span>
                   </button>
                   {userRoleOpen && (
@@ -252,7 +252,7 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
                           onClick={() => { setUserRole(r); setUserRoleOpen(false); }}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setUserRole(r); setUserRoleOpen(false); } }}
                         >
-                          {r.charAt(0) + r.slice(1).toLowerCase()}
+                          {t(`share.roles.${r.toLowerCase()}`, r.charAt(0) + r.slice(1).toLowerCase())}
                         </li>
                       ))}
                     </ul>
@@ -265,7 +265,7 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
                 disabled={!userIdInput || loading}
                 onClick={() => handleInvite('userId')}
               >
-                {loading ? '...' : 'Invite'}
+                {loading ? '...' : t('share.inviteBtn', 'Invite')}
               </button>
             </div>
           </div>
@@ -277,7 +277,7 @@ export default function ShareDialog({ open, onClose, boardId, boardName }) {
           )}
 
           <p className="shareModal__hint">
-            Anyone with this link can join and participate in the voting.
+            {t('share.hint', 'Anyone with this link can join and participate in the voting.')}
           </p>
         </div>
       </div>

@@ -98,5 +98,82 @@
     "minAgo": "min ago",
     "hoursAgo": "hours ago",
     "daysAgo": "days ago"
+  },
+  "boardSettings": {
+    "title": "Board Settings",
+    "tabs": {
+      "general": "General",
+      "tools": "Tools",
+      "members": "Members",
+      "links": "Access Links",
+      "danger": "Danger Zone"
+    },
+    "general": {
+      "title": "General Information",
+      "boardName": "Board Name",
+      "description": "Description",
+      "noDescription": "No description",
+      "key": "Key",
+      "visibility": "Visibility",
+      "createdAt": "Created At"
+    },
+    "tools": {
+      "title": "Board Tools",
+      "description": "Configure additional tools and integrations for this board.",
+      "votingDeck": "Voting Deck",
+      "votingDeckDesc": "Standard Fibonacci, T-Shirt, etc.",
+      "integrations": "Integrations",
+      "integrationsDesc": "Connect Jira, Slack or Trello.",
+      "configure": "Configure",
+      "connect": "Connect"
+    },
+    "members": {
+      "title": "Members",
+      "joined": "Joined",
+      "noMembers": "No members found."
+    },
+    "links": {
+      "title": "Access Links",
+      "unnamedLink": "Unnamed Link",
+      "uses": "Uses",
+      "noLinks": "No access links created."
+    },
+    "danger": {
+      "title": "Danger Zone",
+      "description": "Critical actions for this board. Be careful.",
+      "archiveBtn": "Archive Board"
+    },
+    "errors": {
+      "loading": "Loading...",
+      "loadFailed": "Error loading board details."
+    }
+  },
+  "share": {
+    "title": "Share board",
+    "inviteText": "Invite others to <strong>{{boardName}}</strong> by sharing this link.",
+    "copyBtn": "Copy",
+    "copiedBtn": "Copied!",
+    "inviteEmail": "Invite by email",
+    "emailPlaceholder": "Enter email address",
+    "inviteUserId": "Invite by User ID",
+    "userIdPlaceholder": "Enter user UUID",
+    "inviteBtn": "Invite",
+    "selectRole": "Select role",
+    "roles": {
+      "admin": "Admin",
+      "facilitator": "Facilitator",
+      "member": "Member",
+      "viewer": "Viewer"
+    },
+    "hint": "Anyone with this link can join and participate in the voting.",
+    "errors": {
+      "loginRequired": "You must be logged in",
+      "emailRequired": "Email is required",
+      "invalidEmail": "Invalid email format",
+      "userIdRequired": "User ID is required",
+      "invalidUserId": "Invalid User ID format (UUID expected)",
+      "inviteFailed": "Failed to invite user",
+      "inviteSuccess": "Successfully invited {{name}}"
+    }
   }
 }

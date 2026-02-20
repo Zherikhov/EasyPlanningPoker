@@ -25,13 +25,18 @@ export default function ProfileDialog({ open, onClose }) {
     setLangOpen(false)
     // Sync with backend
     try {
-      await fetch('/api/v1/users/me/locale', {
+      const res = await fetch('/api/v1/users/me/locale', {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${window.localStorage.getItem('pp-token')}`
         },
         body: JSON.stringify({ locale: newLang })
       })
+      if (res.ok) {
+        const updatedUser = await res.json()
+        setProfile(updatedUser)
+      }
     } catch (e) {
       console.error('Failed to sync locale with backend', e)
     }
@@ -39,6 +44,10 @@ export default function ProfileDialog({ open, onClose }) {
 
   useEffect(() => {
     if (!open) return
+    if (profile) {
+      setLoading(false)
+      return
+    }
     const token = window.localStorage.getItem('pp-token')
     if (!token) return
 
@@ -58,7 +67,7 @@ export default function ProfileDialog({ open, onClose }) {
       }
     }
     loadProfile()
-  }, [open])
+  }, [open, profile])
 
   useEffect(() => {
     if (!open) return

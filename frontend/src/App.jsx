@@ -30,7 +30,8 @@ export default function App() {
       }
     }
     loadProfileAndSyncLang()
-  }, [i18n])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Устанавливаем класс темы на <html> при старте приложения,
   // чтобы на любых страницах фон и стили были консистентны
