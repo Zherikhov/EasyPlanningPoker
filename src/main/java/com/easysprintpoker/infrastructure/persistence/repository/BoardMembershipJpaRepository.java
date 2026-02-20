@@ -12,7 +12,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface BoardMembershipJpaRepository extends JpaRepository<BoardMembershipEntity, BoardMembershipId> {
-    boolean existsByBoard_IdAndUser_IdAndStatus(UUID boardId, UUID userId, MembershipStatus status);
 
     Optional<BoardMembershipEntity> findByBoard_IdAndUser_Id(UUID boardId, UUID userId);
 

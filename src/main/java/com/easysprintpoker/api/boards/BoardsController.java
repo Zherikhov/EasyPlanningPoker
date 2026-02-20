@@ -15,7 +15,6 @@ import com.easysprintpoker.infrastructure.security.AuthUtils;
 import com.easysprintpoker.infrastructure.web.errors.ForbiddenException;
 import com.easysprintpoker.infrastructure.web.errors.NotFoundException;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
@@ -42,7 +41,6 @@ public class BoardsController {
         this.users = users;
     }
 
-    // 5.1 GET /boards
     @GetMapping
     public BoardsPageResponse list(Authentication auth,
                                    @RequestParam(name = "mode", defaultValue = "member") String mode,
@@ -60,20 +58,8 @@ public class BoardsController {
         switch (mode.toLowerCase()) {
             case "owner" -> result = boards.findByOwner_Id(userId, pageable);
             case "member" -> result = boards.findActiveMemberBoards(userId, pageable);
-            case "all" -> {
-                // simple union in-memory for minimal viable behavior
-                List<BoardEntity> ownerList = boards.findByOwner_Id(userId, PageRequest.of(0, 500)).getContent();
-                List<BoardEntity> memberList = boards.findActiveMemberBoards(userId, PageRequest.of(0, 500)).getContent();
-                LinkedHashMap<UUID, BoardEntity> map = new LinkedHashMap<>();
-                ownerList.forEach(b -> map.put(b.getId(), b));
-                memberList.forEach(b -> map.putIfAbsent(b.getId(), b));
-                List<BoardEntity> all = new ArrayList<>(map.values());
-                int from = Math.min(page * size, all.size());
-                int to = Math.min(from + size, all.size());
-                List<BoardEntity> slice = all.subList(from, to);
-                result = new PageImpl<>(slice, pageable, all.size());
-            }
-            default -> result = boards.findActiveMemberBoards(userId, pageable);
+            case "all" -> result = boards.findAllForUser(userId, pageable);
+            default -> result = boards.findAllForUser(userId, pageable);
         }
 
         // Поиск по имени/описанию для текущего пользователя (in-memory для MVP)
@@ -157,21 +143,73 @@ public class BoardsController {
         b.setDescription(Optional.ofNullable(req.description).map(String::trim).orElse(null));
         b.setOwner(owner);
         b.setLastUsedAt(OffsetDateTime.now().withNano(0));
-        // Сгенерировать уникальный короткий ключ
+        // Generate a unique short key
         b.setKey(generateUniqueKey());
         BoardEntity saved = boards.save(b);
 
-        // Добавить владельца как участника ADMIN ACTIVE
+        return BoardSummaryResponse.from(saved, memberships);
+    }
+
+    @PostMapping(path = "/{boardId}/members", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public MemberResponse addMember(Authentication auth,
+                                    @PathVariable UUID boardId,
+                                    @RequestBody AddMemberRequest req) {
+        UUID userId = AuthUtils.getUserId(auth);
+        if (userId == null) throw new NotFoundException("User not found");
+        if (req == null) throw new IllegalArgumentException("Request body is required");
+
+        BoardEntity board = boards.findById(boardId).orElseThrow(() -> new NotFoundException("Board not found"));
+
+        boolean isOwner = board.getOwner() != null && userId.equals(board.getOwner().getId());
+        boolean isAdmin = isOwner || memberships.findByBoard_IdAndUser_Id(boardId, userId)
+                .filter(m -> m.getStatus() == MembershipStatus.ACTIVE)
+                .map(m -> m.getRole() == BoardRole.ADMIN)
+                .orElse(false);
+        if (!isAdmin) throw new ForbiddenException("No permission to add members");
+
+        UUID targetUserId = req.userId;
+        String email = Optional.ofNullable(req.email).map(String::trim).orElse(null);
+        boolean hasUserId = targetUserId != null;
+        boolean hasEmail = email != null && !email.isBlank();
+        if (hasUserId == hasEmail) {
+            throw new IllegalArgumentException("Provide either userId or email");
+        }
+
+        UserEntity targetUser;
+        if (hasUserId) {
+            targetUser = users.findById(targetUserId).orElseThrow(() -> new NotFoundException("User not found"));
+        } else {
+            String normalized = email.toLowerCase(Locale.ROOT);
+            targetUser = users.findByEmailNormalized(normalized)
+                    .orElseThrow(() -> new NotFoundException("User not found"));
+        }
+
+        BoardRole role = parseRole(req.role);
+
+        Optional<BoardMembershipEntity> existing = memberships.findByBoard_IdAndUser_Id(boardId, targetUser.getId());
+        if (existing.isPresent()) {
+            BoardMembershipEntity m = existing.get();
+            if (m.getStatus() == MembershipStatus.REMOVED) {
+                m.setStatus(MembershipStatus.INVITED);
+                m.setRole(role);
+                memberships.save(m);
+            } else if (m.getStatus() == MembershipStatus.INVITED) {
+                m.setRole(role);
+                memberships.save(m);
+            }
+            return MemberResponse.from(m);
+        }
+
         BoardMembershipEntity m = new BoardMembershipEntity();
-        m.setId(new BoardMembershipId(saved.getId(), owner.getId()));
-        m.setBoard(saved);
-        m.setUser(owner);
-        m.setRole(BoardRole.ADMIN);
-        m.setStatus(MembershipStatus.ACTIVE);
+        m.setId(new BoardMembershipId(board.getId(), targetUser.getId()));
+        m.setBoard(board);
+        m.setUser(targetUser);
+        m.setRole(role);
+        m.setStatus(MembershipStatus.INVITED);
         m.setJoinedAt(OffsetDateTime.now().withNano(0));
         memberships.save(m);
 
-        return BoardSummaryResponse.from(saved, memberships);
+        return MemberResponse.from(m);
     }
 
     @DeleteMapping("/{id}")
@@ -190,10 +228,20 @@ public class BoardsController {
 
     public record BoardSummaryResponse(UUID id, String key, String name, String description, String visibility,
                                        OffsetDateTime lastUsedAt, long participantsCount) {
+        public BoardSummaryResponse(UUID id, String key, String name, String description, String visibility,
+                                    OffsetDateTime lastUsedAt) {
+            this(id, key, name, description, visibility, lastUsedAt, 0L);
+        }
+
         public static BoardSummaryResponse from(BoardEntity b, BoardMembershipJpaRepository memberships) {
             long cnt = memberships.countActiveByBoard_Id(b.getId());
             return new BoardSummaryResponse(b.getId(), b.getKey(), b.getName(), b.getDescription(),
                     b.getVisibility().name(), b.getLastUsedAt(), cnt);
+        }
+
+        public static BoardSummaryResponse from(BoardEntity b) {
+            return new BoardSummaryResponse(b.getId(), b.getKey(), b.getName(), b.getDescription(),
+                    b.getVisibility().name(), b.getLastUsedAt());
         }
     }
 
@@ -204,6 +252,9 @@ public class BoardsController {
             return new BoardDetailsResponse(b.getId(), b.getKey(), b.getName(), b.getDescription(), b.getVisibility().name(),
                     b.getCreatedAt(), b.getUpdatedAt(), b.getLastUsedAt(), members, links);
         }
+    }
+
+    public record AddMemberRequest(UUID userId, String email, String role) {
     }
 
     public record MemberResponse(UUID userId, String role, String status, OffsetDateTime joinedAt) {
@@ -235,5 +286,14 @@ public class BoardsController {
     }
 
     public record CreateBoardRequest(String name, String description) {
+    }
+
+    private BoardRole parseRole(String role) {
+        if (role == null || role.isBlank()) return BoardRole.MEMBER;
+        try {
+            return BoardRole.valueOf(role.trim().toUpperCase(Locale.ROOT));
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid role");
+        }
     }
 }

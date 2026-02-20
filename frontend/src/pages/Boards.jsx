@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/demo-auth.css'
 import ProfileDialog from '../components/ProfileDialog.jsx'
+import ShareDialog from '../components/ShareDialog.jsx'
 
 export default function Boards() {
   const navigate = useNavigate()
@@ -32,6 +33,9 @@ export default function Boards() {
 
   // Выпадающее меню на карточке доски (шестерёнка)
   const [openCardMenuId, setOpenCardMenuId] = useState(null)
+
+  // Поделиться доской
+  const [shareData, setShareData] = useState({ open: false, id: null, name: '' })
 
   useEffect(() => {
     const token = window.localStorage.getItem('pp-token')
@@ -508,7 +512,7 @@ export default function Boards() {
                     {openCardMenuId === b.id && (
                       <div className="cardMenu" role="menu" onClick={(e)=> e.stopPropagation()}>
                         <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); /* навигация на настройки в будущем */ }}>Settings</button>
-                        <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); /* поделиться — фронтовая заглушка */ alert('Share link copied (demo)') }}>Share</button>
+                        <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); setShareData({ open: true, id: b.id, name: b.name }) }}>Share</button>
                         <button className="cardMenu__item cardMenu__item--danger" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); confirmDelete(b.id) }}>Delete</button>
                       </div>
                     )}
@@ -529,6 +533,12 @@ export default function Boards() {
       {showProfile && (
         <ProfileDialog open={showProfile} onClose={() => setShowProfile(false)} />
       )}
+      <ShareDialog
+        open={shareData.open}
+        onClose={() => setShareData({ ...shareData, open: false })}
+        boardId={shareData.id}
+        boardName={shareData.name}
+      />
     </div>
   )
 }

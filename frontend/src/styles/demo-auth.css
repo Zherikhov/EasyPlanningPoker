@@ -861,15 +861,116 @@ button{font:inherit}
   to{ opacity: 1; transform: translateY(0) scale(1) }
 }
 
+.btn--success{
+  background:linear-gradient(180deg, #10B981, #059669);
+  color:var(--primary-ink);
+  box-shadow: 0 10px 24px rgba(16,185,129,.25);
+}
+
 .modalBackdrop{position:fixed; inset:0; background:rgba(2,6,23,.55); backdrop-filter: blur(6px); display:grid; place-items:center; z-index:1000; animation: fadeIn .12s ease both}
 .pp-root.theme-light .modalBackdrop{background:rgba(15,23,42,.25)}
 @keyframes fadeIn{from{opacity:0} to{opacity:1}}
-.modal{width:min(560px, 92%); border:1px solid var(--border); background: var(--panel); color: var(--text); border-radius:16px; box-shadow: var(--shadow); overflow:hidden}
+.modal{width:min(560px, 92%); border:1px solid var(--border); background: var(--panel); color: var(--text); border-radius:16px; box-shadow: var(--shadow)}
 .modal__head{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 12px; border-bottom:1px solid var(--border)}
 .modal__title{font-weight:900}
-.modal__body{min-height:160px; padding:14px}
+.modal__body{min-height:160px; padding:14px; position:relative}
+
+.shareModal {
+  padding: 20px;
+}
+.shareModal__text {
+  margin: 0 0 16px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.shareModal__hint {
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.shareField {
+  display: flex;
+  gap: 8px;
+  background: rgba(148,163,184,.05);
+  border: 1px solid var(--border);
+  padding: 4px;
+  border-radius: 14px;
+}
+.pp-root.theme-light .shareField {
+  background: rgba(15,23,42,.03);
+}
+.shareField__input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-size: 14px;
+  padding: 0 12px;
+  width: 100%;
+  outline: none;
+}
+.shareField__btn {
+  height: 36px !important;
+  font-weight: 600;
+  font-size: 14px;
+  min-width: 80px;
+}
+
+.shareInvite {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.shareInvite__title {
+  font-weight: 700;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.shareInvite__row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.shareInvite__field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.shareInvite__role {
+  width: 120px;
+  margin-bottom: 0;
+}
+
+.shareInvite__btn {
+  height: 42px !important;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.shareStatus {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.shareStatus--success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.shareStatus--error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
 
 /* Profile Dialog Tabs */
+.modal--profile{overflow:hidden}
 .profileTabs {
   display: flex;
   flex-direction: column;
