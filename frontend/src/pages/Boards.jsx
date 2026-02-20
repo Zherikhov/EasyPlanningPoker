@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import '../styles/demo-auth.css'
 import ProfileDialog from '../components/ProfileDialog.jsx'
 import ShareDialog from '../components/ShareDialog.jsx'
+import BoardSettingsDialog from '../components/BoardSettingsDialog.jsx'
 
 export default function Boards() {
   const navigate = useNavigate()
+  const { t, i18n } = useTranslation()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -21,21 +24,22 @@ export default function Boards() {
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   // Pin to top удалён по требованиям
-  const [lang, setLang] = useState(() => {
-    if (typeof window === 'undefined') return 'en'
-    return window.localStorage.getItem('pp-lang') || 'en'
-  })
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
   const avatarBtnRef = useRef(null)
   const [langOpen, setLangOpen] = useState(false)
   const langDdRef = useRef(null)
 
+  const currentLang = i18n.language || 'en'
+
   // Выпадающее меню на карточке доски (шестерёнка)
   const [openCardMenuId, setOpenCardMenuId] = useState(null)
 
   // Поделиться доской
   const [shareData, setShareData] = useState({ open: false, id: null, name: '' })
+
+  // Настройки доски
+  const [settingsData, setSettingsData] = useState({ open: false, id: null })
 
   useEffect(() => {
     const token = window.localStorage.getItem('pp-token')
@@ -74,12 +78,20 @@ export default function Boards() {
     }
   }, [theme])
 
-  // Сохраняем выбранный язык
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('pp-lang', lang)
+  const changeLanguage = async (newLang) => {
+    i18n.changeLanguage(newLang)
+    setLangOpen(false)
+    // Sync with backend
+    try {
+      await fetch('/api/v1/users/me/locale', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale: newLang })
+      })
+    } catch (e) {
+      console.error('Failed to sync locale with backend', e)
     }
-  }, [lang])
+  }
 
   // Закрытие меню по клику вне и по Esc
   useEffect(() => {
@@ -226,12 +238,12 @@ export default function Boards() {
   const fmtUpdated = (ts) => {
     const delta = Date.now() - ts
     const min = Math.floor(delta/60000)
-    if(min < 1) return 'just now'
-    if(min < 60) return `${min} min ago`
+    if(min < 1) return t('time.justNow', 'just now')
+    if(min < 60) return `${min} ${t('time.minAgo', 'min ago')}`
     const h = Math.floor(min/60)
-    if(h < 24) return `${h} hours ago`
+    if(h < 24) return `${h} ${t('time.hoursAgo', 'hours ago')}`
     const d = Math.floor(h/24)
-    return `${d} days ago`
+    return `${d} ${t('time.daysAgo', 'days ago')}`
   }
 
   const filtered = useMemo(() => {
@@ -295,7 +307,7 @@ export default function Boards() {
   }
 
   const confirmDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this board?')) return
+    if (!window.confirm(t('boards.confirmDelete', 'Are you sure you want to delete this board?'))) return
     const token = window.localStorage.getItem('pp-token')
     try {
       const res = await fetch(`/api/v1/boards/${id}`, {
@@ -341,22 +353,42 @@ export default function Boards() {
                 aria-haspopup="listbox"
                 aria-expanded={langOpen}
                 onClick={() => setLangOpen(o=>!o)}
-                title="Select language"
+                title={t('user.selectLocale', 'Select language')}
               >
-                {lang === 'en' ? 'English' : lang}
+                {currentLang === 'en' ? 'English' : currentLang === 'ru' ? 'Русский' : currentLang === 'de' ? 'Deutsch' : currentLang}
                 <span className="langDropdown__chevron" aria-hidden="true">▾</span>
               </button>
               {langOpen && (
                 <ul className="langDropdown__menu" role="listbox" aria-label="Languages">
                   <li
                     role="option"
-                    aria-selected={lang === 'en'}
-                    className={`langDropdown__option ${lang === 'en' ? 'is-selected' : ''}`}
-                    onClick={() => { setLang('en'); setLangOpen(false) }}
+                    aria-selected={currentLang === 'en'}
+                    className={`langDropdown__option ${currentLang === 'en' ? 'is-selected' : ''}`}
+                    onClick={() => changeLanguage('en')}
                     tabIndex={0}
-                    onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { setLang('en'); setLangOpen(false) } }}
+                    onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('en') } }}
                   >
                     English
+                  </li>
+                  <li
+                    role="option"
+                    aria-selected={currentLang === 'ru'}
+                    className={`langDropdown__option ${currentLang === 'ru' ? 'is-selected' : ''}`}
+                    onClick={() => changeLanguage('ru')}
+                    tabIndex={0}
+                    onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('ru') } }}
+                  >
+                    Русский
+                  </li>
+                  <li
+                    role="option"
+                    aria-selected={currentLang === 'de'}
+                    className={`langDropdown__option ${currentLang === 'de' ? 'is-selected' : ''}`}
+                    onClick={() => changeLanguage('de')}
+                    tabIndex={0}
+                    onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('de') } }}
+                  >
+                    Deutsch
                   </li>
                 </ul>
               )}
@@ -397,8 +429,8 @@ export default function Boards() {
               </button>
               {menuOpen && (
                 <div className="userMenu__dropdown" role="menu">
-                  <button className="userMenu__item" role="menuitem" onClick={goProfile}>Profile</button>
-                  <button className="userMenu__item" role="menuitem" onClick={onLogout}>Log out</button>
+                  <button className="userMenu__item" role="menuitem" onClick={goProfile}>{t('common.profile', 'Profile')}</button>
+                  <button className="userMenu__item" role="menuitem" onClick={onLogout}>{t('common.logout', 'Log out')}</button>
                 </div>
               )}
             </div>
@@ -410,8 +442,8 @@ export default function Boards() {
         <div className="boards__inner">
           <section className="boardsHeader">
             <div className="boardsHeader__left">
-              <h1 className="boardsTitle">Your boards</h1>
-              <p className="boardsSubtitle">Create a board, invite teammates, estimate stories.</p>
+              <h1 className="boardsTitle">{t('boards.title', 'Your boards')}</h1>
+              <p className="boardsSubtitle">{t('boards.subtitle', 'Create a board, invite teammates, estimate stories.')}</p>
             </div>
             <div className="boardsHeader__right">
               <div className="search">
@@ -421,15 +453,15 @@ export default function Boards() {
                 </svg>
                 <input
                   type="search"
-                  placeholder="Search boards"
+                  placeholder={t('boards.searchPlaceholder', 'Search boards')}
                   value={search}
                   onChange={(e)=>setSearch(e.target.value)}
-                  aria-label="Search boards"
+                  aria-label={t('boards.searchLabel', 'Search boards')}
                 />
               </div>
               <button className="btn btn--primary" type="button" onClick={openCreate}>
                 <span className="btn__icon" aria-hidden="true">＋</span>
-                Create board
+                {t('boards.create', 'Create board')}
               </button>
             </div>
           </section>
@@ -441,16 +473,16 @@ export default function Boards() {
             >
               <div className="createPanel__head">
                 <div>
-                  <div className="createPanel__title">Create board</div>
-                  <div className="createPanel__subtitle">Name it so your team can find it quickly.</div>
+                  <div className="createPanel__title">{t('boards.createTitle', 'Create board')}</div>
+                  <div className="createPanel__subtitle">{t('boards.createSubtitle', 'Name it so your team can find it quickly.')}</div>
                 </div>
               </div>
               <div className="createPanel__body">
                 <label className="field">
-                  <span className="field__label">Board name</span>
+                  <span className="field__label">{t('boards.fieldName', 'Board name')}</span>
                   <input
                     type="text"
-                    placeholder="e.g. Sprint 18 estimates"
+                    placeholder={t('boards.placeholderName', 'e.g. Sprint 18 estimates')}
                     maxLength={60}
                     value={newName}
                     onChange={(e)=>setNewName(e.target.value)}
@@ -458,10 +490,10 @@ export default function Boards() {
                   />
                 </label>
                 <label className="field">
-                  <span className="field__label">Description (optional)</span>
+                  <span className="field__label">{t('boards.fieldDesc', 'Description (optional)')}</span>
                   <input
                     type="text"
-                    placeholder="Short note (optional)"
+                    placeholder={t('boards.placeholderDesc', 'Short note (optional)')}
                     maxLength={120}
                     value={newDesc}
                     onChange={(e)=>setNewDesc(e.target.value)}
@@ -469,8 +501,8 @@ export default function Boards() {
                 </label>
                 {/* Переключатель Pin to top удалён согласно требованиям */}
                 <div className="createPanel__actions">
-                  <button className="btn btn--ghost" type="button" onClick={closeCreate}>Cancel</button>
-                  <button className="btn btn--primary" type="button" onClick={confirmCreate}>Create</button>
+                  <button className="btn btn--ghost" type="button" onClick={closeCreate}>{t('common.cancel', 'Cancel')}</button>
+                  <button className="btn btn--primary" type="button" onClick={confirmCreate}>{t('boards.createBtn', 'Create')}</button>
                 </div>
               </div>
             </section>
@@ -479,14 +511,7 @@ export default function Boards() {
           {/* Блоки Total boards, Updated in 24h и Pinned убраны */}
 
           <section className="boardsList" aria-label="Boards list">
-            {filtered.length === 0 ? (
-              <div className="emptyState">
-                <div className="emptyState__icon" aria-hidden="true">🗂️</div>
-                <h2>No boards yet</h2>
-                <p className="muted">Create your first board to start estimating with your team.</p>
-                <button className="btn btn--primary" type="button" onClick={openCreate}>Create board</button>
-              </div>
-            ) : (
+            {filtered.length > 0 && (
               <div className="boardsGrid">
                 {filtered.map(b => (
                   <article key={b.id} className="boardCard" role="button" tabIndex={0} aria-label={`Open board ${b.name}`}
@@ -511,16 +536,16 @@ export default function Boards() {
                     {/* Выпадающее меню карточки */}
                     {openCardMenuId === b.id && (
                       <div className="cardMenu" role="menu" onClick={(e)=> e.stopPropagation()}>
-                        <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); /* навигация на настройки в будущем */ }}>Settings</button>
-                        <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); setShareData({ open: true, id: b.id, name: b.name }) }}>Share</button>
-                        <button className="cardMenu__item cardMenu__item--danger" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); confirmDelete(b.id) }}>Delete</button>
+                        <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); setSettingsData({ open: true, id: b.id }) }}>{t('common.settings', 'Settings')}</button>
+                        <button className="cardMenu__item" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); setShareData({ open: true, id: b.id, name: b.name }) }}>{t('boards.share', 'Share')}</button>
+                        <button className="cardMenu__item cardMenu__item--danger" role="menuitem" onClick={()=>{ setOpenCardMenuId(null); confirmDelete(b.id) }}>{t('common.delete', 'Delete')}</button>
                       </div>
                     )}
 
-                    <h3 className="boardCard__title">{b.name || 'Untitled board'}</h3>
-                    <p className="boardCard__desc">{b.description || 'No description'}</p>
+                    <h3 className="boardCard__title">{b.name || t('boards.untitled', 'Untitled board')}</h3>
+                    <p className="boardCard__desc">{b.description || t('boards.noDescription', 'No description')}</p>
                     <div className="boardMeta">
-                      <span className="metaPill">👥 {Number(b.participants||0)} participants</span>
+                      <span className="metaPill">👥 {Number(b.participants||0)} {t('boards.participantsCount', 'participants')}</span>
                       <span className="metaPill">🕒 {fmtUpdated(b.updated_at || Date.now())}</span>
                     </div>
                   </article>
@@ -538,6 +563,11 @@ export default function Boards() {
         onClose={() => setShareData({ ...shareData, open: false })}
         boardId={shareData.id}
         boardName={shareData.name}
+      />
+      <BoardSettingsDialog
+        open={settingsData.open}
+        onClose={() => setSettingsData({ ...settingsData, open: false })}
+        boardId={settingsData.id}
       />
     </div>
   )

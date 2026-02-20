@@ -1,0 +1,102 @@
+{
+  "common": {
+    "login": "Log In",
+    "logout": "Log out",
+    "profile": "Profile",
+    "settings": "Settings",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "close": "Close",
+    "loading": "Loading..."
+  },
+  "login": {
+    "heroTitle": "Free Planning Poker App",
+    "heroSubtitle": "Estimate user stories in an Agile/Scrum team collaboratively.",
+    "heroDesc": "Free/Open source Planning Poker Web App to estimate user stories for Agile/Scrum teams. Create a session and invite your team members to estimate user stories efficiently.",
+    "getStarted": "Get Started for Free",
+    "signUpTab": "Sign Up",
+    "email": "Email",
+    "password": "Password",
+    "showPwd": "Show password",
+    "hidePwd": "Hide password",
+    "loggingIn": "Logging in...",
+    "continueGoogle": "Continue with Google",
+    "continueApple": "Continue with Apple",
+    "forgotPwd": "Forgot password?",
+    "nameLabel": "Name",
+    "namePlaceholder": "Your name",
+    "signingUp": "Signing up...",
+    "signUpBtn": "Sign Up",
+    "alreadyHaveAccount": "Already have an account? Log In"
+  },
+  "boards": {
+    "title": "Your boards",
+    "subtitle": "Create a board, invite teammates, estimate stories.",
+    "searchPlaceholder": "Search boards",
+    "searchLabel": "Search boards",
+    "create": "Create board",
+    "createTitle": "Create board",
+    "createSubtitle": "Name it so your team can find it quickly.",
+    "fieldName": "Board name",
+    "placeholderName": "e.g. Sprint 18 estimates",
+    "fieldDesc": "Description (optional)",
+    "placeholderDesc": "Short note (optional)",
+    "createBtn": "Create",
+    "confirmDelete": "Are you sure you want to delete this board?",
+    "untitled": "Untitled board",
+    "noDescription": "No description",
+    "participantsCount": "participants",
+    "share": "Share"
+  },
+  "profile": {
+    "settingsTitle": "Profile Settings",
+    "tabs": {
+      "basic": "Basic Information",
+      "contacts": "Contacts",
+      "security": "Security",
+      "oauth": "Sign-in Accounts (OAuth)",
+      "deletion": "Account Deletion / Deactivation"
+    },
+    "basicInfo": "Basic Information",
+    "picture": "Profile picture",
+    "pictureDesc": "A picture helps people recognize you.",
+    "id": "My ID",
+    "displayName": "Display name",
+    "timezone": "Timezone",
+    "contacts": "Contacts",
+    "email": "My email",
+    "security": "Security",
+    "securityDesc": "Update your password and security settings.",
+    "oauth": "Sign-in Accounts (OAuth)",
+    "oauthDesc": "Connect your account with external providers.",
+    "deletion": "Account Deletion / Deactivation",
+    "deletionDesc": "Permanently delete or temporarily deactivate your account.",
+    "deactivateBtn": "Deactivate Account"
+  },
+  "user": {
+    "locale": "Language",
+    "selectLocale": "Select language"
+  },
+  "vote": {
+    "statusClosed": "Closed",
+    "statusRevealed": "Revealed",
+    "statusHidden": "Hidden",
+    "participants": "Participants",
+    "cardsRevealed": "Cards are revealed",
+    "cardsHidden": "Cards are hidden",
+    "yourVote": "Your vote",
+    "votingClosed": "Voting is closed",
+    "pickCard": "Pick a card.",
+    "selected": "Selected",
+    "resetVotes": "Reset votes",
+    "revealCards": "Reveal cards",
+    "hideCards": "Hide cards",
+    "backToBoards": "Back to boards"
+  },
+  "time": {
+    "justNow": "just now",
+    "minAgo": "min ago",
+    "hoursAgo": "hours ago",
+    "daysAgo": "days ago"
+  }
+}

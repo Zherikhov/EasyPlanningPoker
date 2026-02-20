@@ -72,22 +72,28 @@ export function setTokenAndSchedule(token) {
   scheduleAutoRefresh()
 }
 
-function attachAuthHeader(init) {
+function attachI18nHeaders(init) {
   const token = getToken()
+  const lang = window.localStorage.getItem('i18nextLng') || 'en'
   const newInit = { ...(init || {}) }
   const headers = new Headers(newInit.headers || {})
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`)
   }
+  if (!headers.has('Accept-Language')) {
+    headers.set('Accept-Language', lang)
+  }
   newInit.headers = headers
   return newInit
 }
 
-function overwriteAuthHeader(init) {
+function overwriteI18nHeaders(init) {
   const token = getToken()
+  const lang = window.localStorage.getItem('i18nextLng') || 'en'
   const newInit = { ...(init || {}) }
   const headers = new Headers(newInit.headers || {})
   if (token) headers.set('Authorization', `Bearer ${token}`)
+  headers.set('Accept-Language', lang)
   newInit.headers = headers
   return newInit
 }
@@ -101,8 +107,8 @@ export function initAuth() {
 
   const origFetch = window.fetch.bind(window)
   window.fetch = async (input, init) => {
-    // First try with current token if caller didn't set it
-    const firstInit = attachAuthHeader(init)
+    // First try with current token and lang if caller didn't set them
+    const firstInit = attachI18nHeaders(init)
     let res = await origFetch(input, firstInit)
 
     if (res.status !== 401) return res
@@ -111,8 +117,8 @@ export function initAuth() {
     const ok = await refresh()
     if (!ok) return res
 
-    // Retry with new token, ensure we overwrite Authorization
-    const secondInit = overwriteAuthHeader(init)
+    // Retry with new token, ensure we overwrite Authorization and Accept-Language
+    const secondInit = overwriteI18nHeaders(init)
     res = await origFetch(input, secondInit)
     return res
   }

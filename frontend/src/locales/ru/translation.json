@@ -1,0 +1,102 @@
+{
+  "common": {
+    "login": "Вход",
+    "logout": "Выйти",
+    "profile": "Профиль",
+    "settings": "Настройки",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "close": "Закрыть",
+    "loading": "Загрузка..."
+  },
+  "login": {
+    "heroTitle": "Бесплатное приложение Planning Poker",
+    "heroSubtitle": "Оценивайте пользовательские истории в команде Agile/Scrum вместе.",
+    "heroDesc": "Бесплатное веб-приложение Planning Poker с открытым исходным кодом для оценки историй в командах Agile/Scrum. Создайте сессию и пригласите участников вашей команды для эффективной оценки.",
+    "getStarted": "Начать бесплатно",
+    "signUpTab": "Регистрация",
+    "email": "Email",
+    "password": "Пароль",
+    "showPwd": "Показать пароль",
+    "hidePwd": "Скрыть пароль",
+    "loggingIn": "Вход...",
+    "continueGoogle": "Войти через Google",
+    "continueApple": "Войти через Apple",
+    "forgotPwd": "Забыли пароль?",
+    "nameLabel": "Имя",
+    "namePlaceholder": "Ваше имя",
+    "signingUp": "Регистрация...",
+    "signUpBtn": "Зарегистрироваться",
+    "alreadyHaveAccount": "Уже есть аккаунт? Войти"
+  },
+  "boards": {
+    "title": "Ваши доски",
+    "subtitle": "Создайте доску, пригласите коллег, оценивайте задачи.",
+    "searchPlaceholder": "Поиск досок",
+    "searchLabel": "Поиск досок",
+    "create": "Создать доску",
+    "createTitle": "Создание доски",
+    "createSubtitle": "Дайте ей название, чтобы команда могла быстро её найти.",
+    "fieldName": "Название доски",
+    "placeholderName": "например, Оценка Спринта 18",
+    "fieldDesc": "Описание (необязательно)",
+    "placeholderDesc": "Краткая заметка",
+    "createBtn": "Создать",
+    "confirmDelete": "Вы уверены, что хотите удалить эту доску?",
+    "untitled": "Доска без названия",
+    "noDescription": "Нет описания",
+    "participantsCount": "участников",
+    "share": "Поделиться"
+  },
+  "profile": {
+    "settingsTitle": "Настройки профиля",
+    "tabs": {
+      "basic": "Основная информация",
+      "contacts": "Контакты",
+      "security": "Безопасность",
+      "oauth": "Аккаунты для входа (OAuth)",
+      "deletion": "Удаление / Деактивация аккаунта"
+    },
+    "basicInfo": "Основная информация",
+    "picture": "Фото профиля",
+    "pictureDesc": "Фото помогает людям узнавать вас.",
+    "id": "Мой ID",
+    "displayName": "Отображаемое имя",
+    "timezone": "Часовой пояс",
+    "contacts": "Контакты",
+    "email": "Мой email",
+    "security": "Безопасность",
+    "securityDesc": "Обновите пароль и настройки безопасности.",
+    "oauth": "Аккаунты для входа (OAuth)",
+    "oauthDesc": "Подключите ваш аккаунт к внешним провайдерам.",
+    "deletion": "Удаление / Деактивация аккаунта",
+    "deletionDesc": "Навсегда удалите или временно деактивируйте ваш аккаунт.",
+    "deactivateBtn": "Деактивировать аккаунт"
+  },
+  "user": {
+    "locale": "Язык",
+    "selectLocale": "Выберите язык"
+  },
+  "vote": {
+    "statusClosed": "Закрыто",
+    "statusRevealed": "Раскрыто",
+    "statusHidden": "Скрыто",
+    "participants": "Участники",
+    "cardsRevealed": "Карты раскрыты",
+    "cardsHidden": "Карты скрыты",
+    "yourVote": "Ваш голос",
+    "votingClosed": "Голосование закрыто",
+    "pickCard": "Выберите карту.",
+    "selected": "Выбрано",
+    "resetVotes": "Сбросить голоса",
+    "revealCards": "Раскрыть карты",
+    "hideCards": "Скрыть карты",
+    "backToBoards": "К списку досок"
+  },
+  "time": {
+    "justNow": "только что",
+    "minAgo": "мин. назад",
+    "hoursAgo": "час. назад",
+    "daysAgo": "дн. назад"
+  }
+}

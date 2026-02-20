@@ -11,10 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -51,6 +48,18 @@ public class UsersController {
         List<AuthSessionResponse> items = p.getContent().stream().map(AuthSessionResponse::from).toList();
         return new AuthSessionsPageResponse(p.getNumber(), p.getSize(), p.getTotalElements(), items);
     }
+
+    @PatchMapping("/me/locale")
+    public UserProfileResponse updateLocale(Authentication auth, @RequestBody UpdateLocaleRequest request) {
+        UUID userId = AuthUtils.getUserId(auth);
+        if (userId == null) throw new NotFoundException("User not found");
+        UserEntity user = users.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
+        user.setDefaultLocale(request.locale());
+        users.save(user);
+        return UserProfileResponse.from(user);
+    }
+
+    public record UpdateLocaleRequest(String locale) {}
 
     public record UserProfileResponse(
             UUID id,

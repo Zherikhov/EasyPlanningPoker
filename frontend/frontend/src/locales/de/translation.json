@@ -1,0 +1,91 @@
+{
+  "common": {
+    "login": "Anmeldung",
+    "logout": "Abmeldung",
+    "profile": "Profil",
+    "settings": "Einstellungen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "close": "Schließen",
+    "error": "Fehler",
+    "loading": "Laden..."
+  },
+  "boards": {
+    "title": "Ihre Boards",
+    "subtitle": "Erstellen Sie ein Board, laden Sie Teammitglieder ein und bewerten Sie Stories.",
+    "searchPlaceholder": "Boards suchen",
+    "searchLabel": "Boards suchen",
+    "create": "Board erstellen",
+    "createTitle": "Board erstellen",
+    "createSubtitle": "Geben Sie ihm einen Namen, damit Ihr Team es schnell finden kann.",
+    "fieldName": "Boardname",
+    "fieldDesc": "Beschreibung (optional)",
+    "placeholderName": "z.B. Sprint 18 Schätzungen",
+    "placeholderDesc": "Kurze Notiz (optional)",
+    "createBtn": "Erstellen",
+    "join": "Beitreten",
+    "share": "Teilen",
+    "untitled": "Unbenanntes Board",
+    "noDescription": "Keine Beschreibung",
+    "participantsCount": "Teilnehmer",
+    "confirmDelete": "Sind Sie sicher, dass Sie dieses Board löschen möchten?"
+  },
+  "user": {
+    "locale": "Sprache",
+    "selectLocale": "Sprache wählen"
+  },
+  "login": {
+    "heroTitle": "Kostenlose Planning Poker App",
+    "heroSubtitle": "Bewerten Sie User Stories gemeinsam in einem Agile/Scrum Team.",
+    "heroDesc": "Kostenlose Open-Source-Web-App für Planning Poker zur Bewertung von User Stories für Agile/Scrum-Teams. Erstellen Sie eine Sitzung und laden Sie Ihre Teammitglieder ein, um Aufgaben effizient zu bewerten.",
+    "getStarted": "Kostenlos starten",
+    "signUpTab": "Registrieren",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "showPwd": "Passwort anzeigen",
+    "hidePwd": "Passwort ausblenden",
+    "loggingIn": "Anmeldung...",
+    "continueGoogle": "Mit Google fortfahren",
+    "continueApple": "Mit Apple fortfahren",
+    "forgotPwd": "Passwort vergessen? (zukünftig)",
+    "nameLabel": "Name",
+    "namePlaceholder": "Ihr Name",
+    "signingUp": "Registrierung...",
+    "signUpBtn": "Registrieren",
+    "regError": "Registrierungsfehler",
+    "requestError": "Anfragefehler",
+    "alreadyHaveAccount": "Bereits ein Konto? Anmelden"
+  },
+  "profile": {
+    "tabs": {
+      "basic": "Basisinformationen",
+      "contacts": "Kontakte",
+      "security": "Sicherheit",
+      "oauth": "OAuth-Konten",
+      "deletion": "Konto löschen"
+    },
+    "settingsTitle": "Profileinstellungen",
+    "basicInfo": "Basisinformationen",
+    "picture": "Profilbild",
+    "pictureDesc": "Ein Bild hilft anderen, Sie zu erkennen.",
+    "id": "Meine ID",
+    "displayName": "Anzeigename",
+    "timezone": "Zeitzone",
+    "contacts": "Kontakte",
+    "email": "Meine E-Mail",
+    "security": "Sicherheit",
+    "securityDesc": "Aktualisieren Sie Ihr Passwort und Ihre Sicherheitseinstellungen.",
+    "oauth": "OAuth-Konten",
+    "oauthDesc": "Verknüpfen Sie Ihr Konto mit externen Anbietern.",
+    "deletion": "Konto löschen / deaktivieren",
+    "deletionDesc": "Löschen oder deaktivieren Sie Ihr Konto dauerhaft oder vorübergehend.",
+    "deactivateBtn": "Konto deaktivieren"
+  },
+  "time": {
+    "justNow": "gerade eben",
+    "minAgo": "Min. vor",
+    "hoursAgo": "Std. vor",
+    "daysAgo": "Tagen vor"
+  }
+}

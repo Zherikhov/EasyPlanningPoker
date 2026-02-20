@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Boards from './pages/Boards.jsx'
@@ -7,6 +8,30 @@ import Vote from './pages/Vote.jsx'
 import Background from './components/Background.jsx'
 
 export default function App() {
+  const { i18n } = useTranslation()
+
+  useEffect(() => {
+    const loadProfileAndSyncLang = async () => {
+      const token = window.localStorage.getItem('pp-token')
+      if (!token) return
+
+      try {
+        const res = await fetch('/api/v1/users/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const user = await res.json()
+          if (user.defaultLocale && user.defaultLocale !== i18n.language) {
+            i18n.changeLanguage(user.defaultLocale)
+          }
+        }
+      } catch (e) {
+        console.error('Failed to sync lang with profile', e)
+      }
+    }
+    loadProfileAndSyncLang()
+  }, [i18n])
+
   // Устанавливаем класс темы на <html> при старте приложения,
   // чтобы на любых страницах фон и стили были консистентны
   useEffect(() => {

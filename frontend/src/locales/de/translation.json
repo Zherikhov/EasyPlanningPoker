@@ -1,0 +1,102 @@
+{
+  "common": {
+    "login": "Einloggen",
+    "logout": "Abmelden",
+    "profile": "Profil",
+    "settings": "Einstellungen",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "close": "Schließen",
+    "loading": "Laden..."
+  },
+  "login": {
+    "heroTitle": "Kostenlose Planning Poker App",
+    "heroSubtitle": "Bewerten Sie User Stories gemeinsam in einem Agile/Scrum-Team.",
+    "heroDesc": "Kostenlose/Open-Source Planning Poker Web App zur Bewertung von User Stories für Agile/Scrum-Teams. Erstellen Sie eine Sitzung und laden Sie Ihre Teammitglieder ein, um User Stories effizient zu bewerten.",
+    "getStarted": "Kostenlos starten",
+    "signUpTab": "Registrieren",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "showPwd": "Passwort anzeigen",
+    "hidePwd": "Passwort ausblenden",
+    "loggingIn": "Einloggen...",
+    "continueGoogle": "Mit Google fortfahren",
+    "continueApple": "Mit Apple fortfahren",
+    "forgotPwd": "Passwort vergessen?",
+    "nameLabel": "Name",
+    "namePlaceholder": "Ihr Name",
+    "signingUp": "Registrieren...",
+    "signUpBtn": "Registrieren",
+    "alreadyHaveAccount": "Haben Sie bereits ein Konto? Einloggen"
+  },
+  "boards": {
+    "title": "Ihre Boards",
+    "subtitle": "Erstellen Sie ein Board, laden Sie Teammitglieder ein, bewerten Sie Stories.",
+    "searchPlaceholder": "Boards suchen",
+    "searchLabel": "Boards suchen",
+    "create": "Board erstellen",
+    "createTitle": "Board erstellen",
+    "createSubtitle": "Geben Sie ihm einen Namen, damit Ihr Team es schnell finden kann.",
+    "fieldName": "Board-Name",
+    "placeholderName": "z.B. Sprint 18 Schätzungen",
+    "fieldDesc": "Beschreibung (optional)",
+    "placeholderDesc": "Kurze Notiz (optional)",
+    "createBtn": "Erstellen",
+    "confirmDelete": "Sind Sie sicher, dass Sie dieses Board löschen möchten?",
+    "untitled": "Unbenanntes Board",
+    "noDescription": "Keine Beschreibung",
+    "participantsCount": "Teilnehmer",
+    "share": "Teilen"
+  },
+  "profile": {
+    "settingsTitle": "Profileinstellungen",
+    "tabs": {
+      "basic": "Basisinformationen",
+      "contacts": "Kontakte",
+      "security": "Sicherheit",
+      "oauth": "Anmeldekonten (OAuth)",
+      "deletion": "Konto löschen / deaktivieren"
+    },
+    "basicInfo": "Basisinformationen",
+    "picture": "Profilbild",
+    "pictureDesc": "Ein Bild hilft anderen, Sie wiederzuerkennen.",
+    "id": "Meine ID",
+    "displayName": "Anzeigename",
+    "timezone": "Zeitzone",
+    "contacts": "Kontakte",
+    "email": "Meine E-Mail",
+    "security": "Sicherheit",
+    "securityDesc": "Aktualisieren Sie Ihr Passwort und Ihre Sicherheitseinstellungen.",
+    "oauth": "Anmeldekonten (OAuth)",
+    "oauthDesc": "Verbinden Sie Ihr Konto mit externen Anbietern.",
+    "deletion": "Konto löschen / deaktivieren",
+    "deletionDesc": "Löschen Sie Ihr Konto dauerhaft oder deaktivieren Sie es vorübergehend.",
+    "deactivateBtn": "Konto deaktivieren"
+  },
+  "user": {
+    "locale": "Sprache",
+    "selectLocale": "Sprache auswählen"
+  },
+  "vote": {
+    "statusClosed": "Geschlossen",
+    "statusRevealed": "Offengelegt",
+    "statusHidden": "Verborgen",
+    "participants": "Teilnehmer",
+    "cardsRevealed": "Karten sind offengelegt",
+    "cardsHidden": "Karten sind verborgen",
+    "yourVote": "Ihre Stimme",
+    "votingClosed": "Abstimmung ist geschlossen",
+    "pickCard": "Wählen Sie eine Karte.",
+    "selected": "Ausgewählt",
+    "resetVotes": "Stimmen zurücksetzen",
+    "revealCards": "Karten offenlegen",
+    "hideCards": "Karten verbergen",
+    "backToBoards": "Zurück zu Boards"
+  },
+  "time": {
+    "justNow": "gerade eben",
+    "minAgo": "Min. vor",
+    "hoursAgo": "Std. vor",
+    "daysAgo": "Tage vor"
+  }
+}

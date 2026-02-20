@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import '../styles/demo-auth.css'
 import ProfileDialog from '../components/ProfileDialog.jsx'
 
 export default function Vote() {
   const navigate = useNavigate()
   const { boardId } = useParams()
+  const { t, i18n } = useTranslation()
   const [theme, setTheme] = useState(() => {
     if (typeof window === 'undefined') return 'dark'
     return window.localStorage.getItem('pp-theme') || 'dark'
@@ -13,10 +15,7 @@ export default function Vote() {
 
   // Профиль и состояния для тулбара, как на Boards
   const [profile, setProfile] = useState(null)
-  const [lang, setLang] = useState(() => {
-    if (typeof window === 'undefined') return 'en'
-    return window.localStorage.getItem('pp-lang') || 'en'
-  })
+  const currentLang = i18n.language || 'en'
   const [menuOpen, setMenuOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const menuRef = useRef(null)
@@ -56,12 +55,20 @@ export default function Vote() {
     loadProfile()
   }, [navigate])
 
-  // Сохранение языка
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('pp-lang', lang)
+  const changeLanguage = async (newLang) => {
+    i18n.changeLanguage(newLang)
+    setLangOpen(false)
+    // Sync with backend
+    try {
+      await fetch('/api/v1/users/me/locale', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale: newLang })
+      })
+    } catch (e) {
+      console.error('Failed to sync locale with backend', e)
     }
-  }, [lang])
+  }
 
   // Закрытие меню пользователя по клику вне и Esc
   useEffect(() => {
@@ -329,15 +336,48 @@ export default function Vote() {
             <div className="topbar__actions">
               <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
               <div className="langDropdown" ref={langDdRef}>
-                <button type="button" className="langDropdown__button" aria-haspopup="listbox" aria-expanded={langOpen} onClick={() => setLangOpen(o=>!o)} title="Select language">
-                  {lang === 'en' ? 'English' : lang}
+                <button
+                  type="button"
+                  className="langDropdown__button"
+                  aria-haspopup="listbox"
+                  aria-expanded={langOpen}
+                  onClick={() => setLangOpen(o=>!o)}
+                  title={t('user.selectLocale', 'Select language')}
+                >
+                  {currentLang === 'en' ? 'English' : currentLang === 'ru' ? 'Русский' : currentLang === 'de' ? 'Deutsch' : currentLang}
                   <span className="langDropdown__chevron" aria-hidden="true">▾</span>
                 </button>
                 {langOpen && (
                   <ul className="langDropdown__menu" role="listbox" aria-label="Languages">
-                    <li role="option" aria-selected={lang === 'en'} className={`langDropdown__option ${lang === 'en' ? 'is-selected' : ''}`} onClick={() => { setLang('en'); setLangOpen(false) }} tabIndex={0}
-                        onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { setLang('en'); setLangOpen(false) } }}>
+                    <li
+                      role="option"
+                      aria-selected={currentLang === 'en'}
+                      className={`langDropdown__option ${currentLang === 'en' ? 'is-selected' : ''}`}
+                      onClick={() => changeLanguage('en')}
+                      tabIndex={0}
+                      onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('en') } }}
+                    >
                       English
+                    </li>
+                    <li
+                      role="option"
+                      aria-selected={currentLang === 'ru'}
+                      className={`langDropdown__option ${currentLang === 'ru' ? 'is-selected' : ''}`}
+                      onClick={() => changeLanguage('ru')}
+                      tabIndex={0}
+                      onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('ru') } }}
+                    >
+                      Русский
+                    </li>
+                    <li
+                      role="option"
+                      aria-selected={currentLang === 'de'}
+                      className={`langDropdown__option ${currentLang === 'de' ? 'is-selected' : ''}`}
+                      onClick={() => changeLanguage('de')}
+                      tabIndex={0}
+                      onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('de') } }}
+                    >
+                      Deutsch
                     </li>
                   </ul>
                 )}
@@ -354,8 +394,8 @@ export default function Vote() {
                 </button>
                 {menuOpen && (
                   <div className="userMenu__dropdown" role="menu">
-                    <button className="userMenu__item" role="menuitem" onClick={goProfile}>Profile</button>
-                    <button className="userMenu__item" role="menuitem" onClick={onLogout}>Log out</button>
+                    <button className="userMenu__item" role="menuitem" onClick={goProfile}>{t('common.profile', 'Profile')}</button>
+                    <button className="userMenu__item" role="menuitem" onClick={onLogout}>{t('common.logout', 'Log out')}</button>
                   </div>
                 )}
               </div>
@@ -364,7 +404,7 @@ export default function Vote() {
         </header>
         <main className="boards">
           <div className="boards__inner">
-            <p className="muted">Loading…</p>
+            <p className="muted">{t('common.loading', 'Loading…')}</p>
           </div>
         </main>
       </div>
@@ -390,15 +430,48 @@ export default function Vote() {
             <div className="topbar__actions">
               <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
               <div className="langDropdown" ref={langDdRef}>
-                <button type="button" className="langDropdown__button" aria-haspopup="listbox" aria-expanded={langOpen} onClick={() => setLangOpen(o=>!o)} title="Select language">
-                  {lang === 'en' ? 'English' : lang}
+                <button
+                  type="button"
+                  className="langDropdown__button"
+                  aria-haspopup="listbox"
+                  aria-expanded={langOpen}
+                  onClick={() => setLangOpen(o=>!o)}
+                  title={t('user.selectLocale', 'Select language')}
+                >
+                  {currentLang === 'en' ? 'English' : currentLang === 'ru' ? 'Русский' : currentLang === 'de' ? 'Deutsch' : currentLang}
                   <span className="langDropdown__chevron" aria-hidden="true">▾</span>
                 </button>
                 {langOpen && (
                   <ul className="langDropdown__menu" role="listbox" aria-label="Languages">
-                    <li role="option" aria-selected={lang === 'en'} className={`langDropdown__option ${lang === 'en' ? 'is-selected' : ''}`} onClick={() => { setLang('en'); setLangOpen(false) }} tabIndex={0}
-                        onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { setLang('en'); setLangOpen(false) } }}>
+                    <li
+                      role="option"
+                      aria-selected={currentLang === 'en'}
+                      className={`langDropdown__option ${currentLang === 'en' ? 'is-selected' : ''}`}
+                      onClick={() => changeLanguage('en')}
+                      tabIndex={0}
+                      onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('en') } }}
+                    >
                       English
+                    </li>
+                    <li
+                      role="option"
+                      aria-selected={currentLang === 'ru'}
+                      className={`langDropdown__option ${currentLang === 'ru' ? 'is-selected' : ''}`}
+                      onClick={() => changeLanguage('ru')}
+                      tabIndex={0}
+                      onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('ru') } }}
+                    >
+                      Русский
+                    </li>
+                    <li
+                      role="option"
+                      aria-selected={currentLang === 'de'}
+                      className={`langDropdown__option ${currentLang === 'de' ? 'is-selected' : ''}`}
+                      onClick={() => changeLanguage('de')}
+                      tabIndex={0}
+                      onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('de') } }}
+                    >
+                      Deutsch
                     </li>
                   </ul>
                 )}
@@ -415,8 +488,8 @@ export default function Vote() {
                 </button>
                 {menuOpen && (
                   <div className="userMenu__dropdown" role="menu">
-                    <button className="userMenu__item" role="menuitem" onClick={goProfile}>Profile</button>
-                    <button className="userMenu__item" role="menuitem" onClick={onLogout}>Log out</button>
+                    <button className="userMenu__item" role="menuitem" onClick={goProfile}>{t('common.profile', 'Profile')}</button>
+                    <button className="userMenu__item" role="menuitem" onClick={onLogout}>{t('common.logout', 'Log out')}</button>
                   </div>
                 )}
               </div>
@@ -426,7 +499,7 @@ export default function Vote() {
         <main className="boards">
           <div className="boards__inner">
             <p className="muted">{error}</p>
-            <button className="btn btn--ghost" type="button" onClick={()=>navigate('/boards')}>Back to boards</button>
+            <button className="btn btn--ghost" type="button" onClick={()=>navigate('/boards')}>{t('vote.backToBoards', 'Back to boards')}</button>
           </div>
         </main>
       </div>
@@ -466,22 +539,42 @@ export default function Vote() {
                 aria-haspopup="listbox"
                 aria-expanded={langOpen}
                 onClick={() => setLangOpen(o=>!o)}
-                title="Select language"
+                title={t('user.selectLocale', 'Select language')}
               >
-                {lang === 'en' ? 'English' : lang}
+                {currentLang === 'en' ? 'English' : currentLang === 'ru' ? 'Русский' : currentLang === 'de' ? 'Deutsch' : currentLang}
                 <span className="langDropdown__chevron" aria-hidden="true">▾</span>
               </button>
               {langOpen && (
                 <ul className="langDropdown__menu" role="listbox" aria-label="Languages">
                   <li
                     role="option"
-                    aria-selected={lang === 'en'}
-                    className={`langDropdown__option ${lang === 'en' ? 'is-selected' : ''}`}
-                    onClick={() => { setLang('en'); setLangOpen(false) }}
+                    aria-selected={currentLang === 'en'}
+                    className={`langDropdown__option ${currentLang === 'en' ? 'is-selected' : ''}`}
+                    onClick={() => changeLanguage('en')}
                     tabIndex={0}
-                    onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { setLang('en'); setLangOpen(false) } }}
+                    onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('en') } }}
                   >
                     English
+                  </li>
+                  <li
+                    role="option"
+                    aria-selected={currentLang === 'ru'}
+                    className={`langDropdown__option ${currentLang === 'ru' ? 'is-selected' : ''}`}
+                    onClick={() => changeLanguage('ru')}
+                    tabIndex={0}
+                    onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('ru') } }}
+                  >
+                    Русский
+                  </li>
+                  <li
+                    role="option"
+                    aria-selected={currentLang === 'de'}
+                    className={`langDropdown__option ${currentLang === 'de' ? 'is-selected' : ''}`}
+                    onClick={() => changeLanguage('de')}
+                    tabIndex={0}
+                    onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { changeLanguage('de') } }}
+                  >
+                    Deutsch
                   </li>
                 </ul>
               )}
@@ -522,8 +615,8 @@ export default function Vote() {
               </button>
               {menuOpen && (
                 <div className="userMenu__dropdown" role="menu">
-                  <button className="userMenu__item" role="menuitem" onClick={goProfile}>Profile</button>
-                  <button className="userMenu__item" role="menuitem" onClick={onLogout}>Log out</button>
+                  <button className="userMenu__item" role="menuitem" onClick={goProfile}>{t('common.profile', 'Profile')}</button>
+                  <button className="userMenu__item" role="menuitem" onClick={onLogout}>{t('common.logout', 'Log out')}</button>
                 </div>
               )}
             </div>
@@ -538,7 +631,7 @@ export default function Vote() {
             <div className="storyHead" style={{display:'flex', justifyContent:'space-between', gap:12}}>
               <h1 className="storyTitle" style={{margin:0, fontSize:20}}>{state?.currentItem?.title || 'Estimation'}</h1>
               <span className="statusPill" style={{padding:'6px 10px', border:'1px solid var(--border)', borderRadius:999, color:'var(--muted)'}}>
-                {closed ? 'Closed' : (revealed ? 'Revealed' : 'Hidden')}
+                {closed ? t('vote.statusClosed', 'Closed') : (revealed ? t('vote.statusRevealed', 'Revealed') : t('vote.statusHidden', 'Hidden'))}
               </span>
             </div>
             {state?.currentItem?.description && (
@@ -549,8 +642,8 @@ export default function Vote() {
           {/* Participants */}
           <section className="participantsPanel" style={{border:'1px solid var(--border)', background:'var(--panel)', borderRadius:18, padding:16, boxShadow:'0 12px 26px rgba(0,0,0,.14)', marginTop:12}}>
             <div className="panelHead" style={{display:'flex', justifyContent:'space-between'}}>
-              <h2 style={{margin:0, fontSize:15}}>Participants</h2>
-              <div className="muted" style={{color:'var(--muted)', fontSize:12}}>{revealed ? 'Cards are revealed' : 'Cards are hidden'}</div>
+              <h2 style={{margin:0, fontSize:15}}>{t('vote.participants', 'Participants')}</h2>
+              <div className="muted" style={{color:'var(--muted)', fontSize:12}}>{revealed ? t('vote.cardsRevealed', 'Cards are revealed') : t('vote.cardsHidden', 'Cards are hidden')}</div>
             </div>
             <div className="participantsGrid" style={{marginTop:12, display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:12}}>
               {participants.map(p => {
@@ -630,9 +723,9 @@ export default function Vote() {
           {/* Voting cards */}
           <section className="votingPanel" style={{border:'1px solid var(--border)', background:'var(--panel)', borderRadius:18, padding:16, boxShadow:'0 12px 26px rgba(0,0,0,.14)', marginTop:12}}>
             <div className="panelHead" style={{display:'flex', justifyContent:'space-between'}}>
-              <h2 style={{margin:0, fontSize:15}}>Your vote</h2>
+              <h2 style={{margin:0, fontSize:15}}>{t('vote.yourVote', 'Your vote')}</h2>
               <div className="panelHint muted" style={{color:'var(--muted)', fontSize:12}}>
-                {closed ? 'Voting is closed' : 'Pick a card.'}
+                {closed ? t('vote.votingClosed', 'Voting is closed') : t('vote.pickCard', 'Pick a card.')}
               </div>
             </div>
 
@@ -655,21 +748,21 @@ export default function Vote() {
             </div>
 
             <div className="yourChoice" style={{marginTop:12, display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-              <span className="muted" style={{color:'var(--muted)'}}>Selected:</span>
+              <span className="muted" style={{color:'var(--muted)'}}>{t('vote.selected', 'Selected')}:</span>
               <span className="choicePill" style={{padding:'8px 12px', border:'1px solid var(--border)', borderRadius:999, background:'rgba(255,255,255,.03)', fontWeight:900}}>{myVote || '—'}</span>
             </div>
           </section>
 
           {/* Controls */}
           <section className="controlsPanel" style={{display:'flex', justifyContent:'space-between', gap:12, marginTop:12}}>
-            <button className="btn btn--ghost" type="button" onClick={onReset} disabled={!state?.permissions?.canReset}>Reset votes</button>
+            <button className="btn btn--ghost" type="button" onClick={onReset} disabled={!state?.permissions?.canReset}>{t('vote.resetVotes', 'Reset votes')}</button>
             <button className="btn btn--primary" type="button" onClick={onRevealToggle} disabled={!state?.permissions?.canReveal}>
-              {revealed ? 'Hide cards' : 'Reveal cards'}
+              {revealed ? t('vote.hideCards', 'Hide cards') : t('vote.revealCards', 'Reveal cards')}
             </button>
           </section>
 
           <div style={{marginTop:16}}>
-            <button className="btn btn--ghost" type="button" onClick={()=>navigate('/boards')}>Back to boards</button>
+            <button className="btn btn--ghost" type="button" onClick={()=>navigate('/boards')}>{t('vote.backToBoards', 'Back to boards')}</button>
           </div>
         </div>
       </main>

@@ -91,6 +91,40 @@ public class BoardsController {
         return BoardSummaryResponse.from(board, memberships);
     }
 
+    @GetMapping("/{id}/details")
+    public BoardDetailsResponse getDetails(@PathVariable UUID id, Authentication auth) {
+        UUID userId = AuthUtils.getUserId(auth);
+        if (userId == null) throw new NotFoundException("User not found");
+        BoardEntity board = boards.findById(id).orElseThrow(() -> new NotFoundException("Board not found"));
+
+        boolean isOwner = board.getOwner() != null && userId.equals(board.getOwner().getId());
+        Optional<BoardMembershipEntity> myMembershipOpt = memberships.findByBoard_IdAndUser_Id(board.getId(), userId);
+        boolean isActiveMember = myMembershipOpt.map(m -> m.getStatus() == MembershipStatus.ACTIVE).orElse(false);
+        if (!(isOwner || isActiveMember)) {
+            throw new ForbiddenException("No access to board");
+        }
+
+        BoardRole myRole = isOwner ? BoardRole.ADMIN : myMembershipOpt.map(BoardMembershipEntity::getRole).orElse(BoardRole.VIEWER);
+
+        List<BoardMembershipEntity> membersToShow;
+        if (isOwner || myRole == BoardRole.ADMIN) {
+            membersToShow = memberships.findByBoard_Id(board.getId());
+        } else {
+            membersToShow = memberships.findByBoardIdWithStatuses(board.getId(), List.of(MembershipStatus.ACTIVE));
+        }
+
+        List<AccessLinkResponse> links = List.of();
+        if (isOwner || myRole == BoardRole.ADMIN) {
+            links = accessLinks.findAll().stream()
+                    .filter(l -> l.getBoard() != null && l.getBoard().getId().equals(board.getId()))
+                    .map(AccessLinkResponse::from)
+                    .collect(Collectors.toList());
+        }
+
+        List<MemberResponse> members = membersToShow.stream().map(MemberResponse::from).toList();
+        return BoardDetailsResponse.from(board, members, links);
+    }
+
     // 5.3 GET /boards/{boardKey}
     @GetMapping("/{boardKey}")
     public BoardDetailsResponse getByKey(@PathVariable String boardKey, Authentication auth) {

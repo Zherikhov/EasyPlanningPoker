@@ -420,7 +420,7 @@ button{font:inherit}
 .pp-root.theme-light .authTabs__tab.is-active{color:#0F172A}
 
 .authForm{display:flex; flex-direction:column; gap:12px}
-.field{display:flex; flex-direction:column; gap:6px}
+.field{display:flex; flex-direction:column; gap:4px}
 .field__label{font-size:13px; color:rgba(229,231,235,.82); transition: color .18s ease}
 .field__control{position:relative}
 .input{
@@ -785,20 +785,6 @@ button{font:inherit}
 }
 
 /* Empty */
-.emptyState{
-  border:1px dashed color-mix(in srgb, var(--border) 80%, transparent);
-  background: rgba(15,23,42,.45);
-  border-radius: var(--radius);
-  padding: 34px 18px;
-  text-align:center;
-  backdrop-filter: blur(12px);
-}
-.pp-root.theme-light .emptyState{
-  background: rgba(255,255,255,.70);
-}
-.emptyState__icon{font-size:34px}
-.emptyState h2{margin:10px 0 6px; font-size:18px}
-.emptyState .muted{margin:0 auto 14px; max-width:520px}
 
 .cardMenuBtn{
   position:absolute;
@@ -1014,7 +1000,7 @@ button{font:inherit}
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .profileAvatar {
@@ -1046,7 +1032,7 @@ button{font:inherit}
 
 .profileFields {
   display: grid;
-  gap: 20px;
+  gap: 12px;
 }
 
 @media (min-width: 640px) {
