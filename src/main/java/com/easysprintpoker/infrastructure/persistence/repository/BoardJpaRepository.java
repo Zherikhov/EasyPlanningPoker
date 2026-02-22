@@ -14,10 +14,28 @@ public interface BoardJpaRepository extends JpaRepository<BoardEntity, UUID> {
     Page<BoardEntity> findByOwner_Id(UUID ownerId, Pageable pageable);
     Optional<BoardEntity> findByKey(String key);
 
-    @Query("select distinct bm.board from BoardMembershipEntity bm where bm.user.id = :userId and (bm.status = com.easysprintpoker.domain.enums.MembershipStatus.ACTIVE or bm.status = com.easysprintpoker.domain.enums.MembershipStatus.INVITED)")
+    @Query("""
+            select distinct bm.board
+                        from BoardMembershipEntity bm
+                        where bm.user.id = :userId
+                            and (bm.status = com.easysprintpoker.domain.enums.MembershipStatus.ACTIVE
+                            or bm.status = com.easysprintpoker.domain.enums.MembershipStatus.INVITED)
+            """)
     Page<BoardEntity> findActiveMemberBoards(@Param("userId") UUID userId, Pageable pageable);
 
-    @Query("select distinct b from BoardEntity b left join b.memberships bm where b.owner.id = :userId or " +
-            "(bm.user.id = :userId and (bm.status = com.easysprintpoker.domain.enums.MembershipStatus.ACTIVE or bm.status = com.easysprintpoker.domain.enums.MembershipStatus.INVITED))")
+    @Query("""
+            select b
+            from BoardEntity b
+            where b.owner.id = :userId
+               or exists (
+                   select 1
+                   from BoardMembershipEntity bm
+                   where bm.board = b
+                     and bm.user.id = :userId
+                     and bm.status in (
+                         com.easysprintpoker.domain.enums.MembershipStatus.ACTIVE,
+                         com.easysprintpoker.domain.enums.MembershipStatus.INVITED
+                     )
+               )""")
     Page<BoardEntity> findAllForUser(@Param("userId") UUID userId, Pageable pageable);
 }
