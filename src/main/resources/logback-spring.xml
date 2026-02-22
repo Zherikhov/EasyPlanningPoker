@@ -113,12 +113,12 @@
     <logger name="com.easysprintpoker.api.auth" level="TRACE" additivity="true">
         <appender-ref ref="AUTH_FILE"/>
     </logger>
-    <logger name="com.easysprintpoker.infrastructure.security" level="TRACE" additivity="true">
+    <logger name="com.easysprintpoker.infrastructure.security" level="INFO" additivity="true">
         <appender-ref ref="AUTH_FILE"/>
     </logger>
 
     <!-- HTTP Requests -->
-    <logger name="org.springframework.web.filter.CommonsRequestLoggingFilter" level="DEBUG" additivity="true">
+    <logger name="org.springframework.web.filter.CommonsRequestLoggingFilter" level="INFO" additivity="true">
         <appender-ref ref="HTTP_FILE"/>
     </logger>
 
@@ -137,7 +137,7 @@
     <logger name="org.hibernate.SQL" level="DEBUG" additivity="true">
         <appender-ref ref="DB_FILE"/>
     </logger>
-    <logger name="org.hibernate.orm.jdbc.bind" level="TRACE" additivity="true">
+    <logger name="org.hibernate.orm.jdbc.bind" level="DEBUG" additivity="true">
         <appender-ref ref="DB_FILE"/>
     </logger>
 
