@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
@@ -43,7 +44,7 @@ public class BoardsController {
 
     @GetMapping
     public BoardsPageResponse list(Authentication auth,
-                                   @RequestParam(name = "mode", defaultValue = "member") String mode,
+                                   @RequestParam(name = "mode", defaultValue = "all") String mode,
                                    @RequestParam(name = "page", defaultValue = "0") int page,
                                    @RequestParam(name = "size", defaultValue = "20") int size,
                                    @RequestParam(name = "search", required = false) String search) {
@@ -164,6 +165,7 @@ public class BoardsController {
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Transactional
     public BoardSummaryResponse create(Authentication auth, @RequestBody CreateBoardRequest req) {
         UUID userId = AuthUtils.getUserId(auth);
         if (userId == null) throw new NotFoundException("User not found");
@@ -180,6 +182,16 @@ public class BoardsController {
         // Generate a unique short key
         b.setKey(generateUniqueKey());
         BoardEntity saved = boards.save(b);
+
+        // Add owner as an admin member
+        BoardMembershipEntity m = new BoardMembershipEntity();
+        m.setId(new BoardMembershipId(saved.getId(), owner.getId()));
+        m.setBoard(saved);
+        m.setUser(owner);
+        m.setRole(BoardRole.ADMIN);
+        m.setStatus(MembershipStatus.ACTIVE);
+        m.setJoinedAt(OffsetDateTime.now().withNano(0));
+        memberships.save(m);
 
         return BoardSummaryResponse.from(saved, memberships);
     }
