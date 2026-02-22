@@ -20,6 +20,6 @@ public interface BoardMembershipJpaRepository extends JpaRepository<BoardMembers
     @Query("select bm from BoardMembershipEntity bm where bm.board.id = :boardId and bm.status in :statuses")
     List<BoardMembershipEntity> findByBoardIdWithStatuses(@Param("boardId") UUID boardId, @Param("statuses") List<MembershipStatus> statuses);
 
-    @Query("select count(bm) from BoardMembershipEntity bm where bm.board.id = :boardId and bm.status = com.easysprintpoker.domain.enums.MembershipStatus.ACTIVE")
+    @Query("select count(bm) from BoardMembershipEntity bm where bm.board.id = :boardId and (bm.status = com.easysprintpoker.domain.enums.MembershipStatus.ACTIVE or bm.status = com.easysprintpoker.domain.enums.MembershipStatus.INVITED)")
     long countActiveByBoard_Id(@Param("boardId") UUID boardId);
 }

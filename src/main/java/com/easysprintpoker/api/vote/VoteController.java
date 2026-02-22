@@ -57,7 +57,7 @@ public class VoteController {
     private Map<String, Object> parseSettings(String jsonStr) {
         try {
             if (jsonStr == null || jsonStr.isBlank()) return new HashMap<>();
-            return json.readValue(jsonStr, new TypeReference<Map<String, Object>>(){});
+            return json.readValue(jsonStr, new TypeReference<>(){});
         } catch (Exception e) {
             return new HashMap<>();
         }
@@ -71,7 +71,7 @@ public class VoteController {
         if (board.getOwner() != null && userId.equals(board.getOwner().getId())) return true;
         // для минимального варианта: проверим активное членство и роль ADMIN
         Optional<BoardMembershipEntity> m = memberships.findByBoard_IdAndUser_Id(board.getId(), userId);
-        return m.filter(mm -> mm.getStatus() == MembershipStatus.ACTIVE)
+        return m.filter(mm -> mm.getStatus() == MembershipStatus.ACTIVE || mm.getStatus() == MembershipStatus.INVITED)
                 .map(mm -> mm.getRole() == com.easysprintpoker.domain.enums.BoardRole.ADMIN)
                 .orElse(false);
     }
@@ -162,7 +162,7 @@ public class VoteController {
         // Не добавляем текущего пользователя автоматически в участники.
         // Требуется явный "перезаход" после удаления.
         // lazily ensure participants for all active members so список участников отображался
-        List<BoardMembershipEntity> activeMembers = memberships.findByBoardIdWithStatuses(boardId, List.of(MembershipStatus.ACTIVE));
+        List<BoardMembershipEntity> activeMembers = memberships.findByBoardIdWithStatuses(boardId, List.of(MembershipStatus.ACTIVE, MembershipStatus.INVITED));
         for (BoardMembershipEntity m : activeMembers) {
             if (m.getUser() != null) ensureParticipant(session, m.getUser().getId());
         }
@@ -213,7 +213,7 @@ public class VoteController {
                 UUID participantUserId = null;
                 if (p.getUser() != null) {
                     participantUserId = p.getUser().getId();
-                    avatarUrl = Optional.ofNullable(p.getUser().getAvatarUrl()).orElse(null);
+                    avatarUrl = p.getUser().getAvatarUrl();
                 }
                 pStates.add(new ParticipantState(p.getId(), participantUserId, name, hasVote, shown, avatarUrl));
             }

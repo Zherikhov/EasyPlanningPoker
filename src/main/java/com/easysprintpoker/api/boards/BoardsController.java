@@ -99,7 +99,7 @@ public class BoardsController {
 
         boolean isOwner = board.getOwner() != null && userId.equals(board.getOwner().getId());
         Optional<BoardMembershipEntity> myMembershipOpt = memberships.findByBoard_IdAndUser_Id(board.getId(), userId);
-        boolean isActiveMember = myMembershipOpt.map(m -> m.getStatus() == MembershipStatus.ACTIVE).orElse(false);
+        boolean isActiveMember = myMembershipOpt.map(m -> m.getStatus() == MembershipStatus.ACTIVE || m.getStatus() == MembershipStatus.INVITED).orElse(false);
         if (!(isOwner || isActiveMember)) {
             throw new ForbiddenException("No access to board");
         }
@@ -110,7 +110,7 @@ public class BoardsController {
         if (isOwner || myRole == BoardRole.ADMIN) {
             membersToShow = memberships.findByBoard_Id(board.getId());
         } else {
-            membersToShow = memberships.findByBoardIdWithStatuses(board.getId(), List.of(MembershipStatus.ACTIVE));
+            membersToShow = memberships.findByBoardIdWithStatuses(board.getId(), List.of(MembershipStatus.ACTIVE, MembershipStatus.INVITED));
         }
 
         List<AccessLinkResponse> links = List.of();
@@ -134,7 +134,7 @@ public class BoardsController {
 
         boolean isOwner = board.getOwner() != null && userId.equals(board.getOwner().getId());
         Optional<BoardMembershipEntity> myMembershipOpt = memberships.findByBoard_IdAndUser_Id(board.getId(), userId);
-        boolean isActiveMember = myMembershipOpt.map(m -> m.getStatus() == MembershipStatus.ACTIVE).orElse(false);
+        boolean isActiveMember = myMembershipOpt.map(m -> m.getStatus() == MembershipStatus.ACTIVE || m.getStatus() == MembershipStatus.INVITED).orElse(false);
         if (!(isOwner || isActiveMember)) {
             throw new ForbiddenException("No access to board");
         }
@@ -146,7 +146,7 @@ public class BoardsController {
         if (isOwner || myRole == BoardRole.ADMIN) {
             membersToShow = memberships.findByBoard_Id(board.getId());
         } else {
-            membersToShow = memberships.findByBoardIdWithStatuses(board.getId(), List.of(MembershipStatus.ACTIVE));
+            membersToShow = memberships.findByBoardIdWithStatuses(board.getId(), List.of(MembershipStatus.ACTIVE, MembershipStatus.INVITED));
         }
 
         // access links only for owner/admin
@@ -196,7 +196,7 @@ public class BoardsController {
 
         boolean isOwner = board.getOwner() != null && userId.equals(board.getOwner().getId());
         boolean isAdmin = isOwner || memberships.findByBoard_IdAndUser_Id(boardId, userId)
-                .filter(m -> m.getStatus() == MembershipStatus.ACTIVE)
+                .filter(m -> m.getStatus() == MembershipStatus.ACTIVE || m.getStatus() == MembershipStatus.INVITED)
                 .map(m -> m.getRole() == BoardRole.ADMIN)
                 .orElse(false);
         if (!isAdmin) throw new ForbiddenException("No permission to add members");
