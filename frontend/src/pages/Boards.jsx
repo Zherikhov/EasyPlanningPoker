@@ -344,6 +344,7 @@ export default function Boards() {
 
           <div className="topbar__actions">
             <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a className="nav__link" href="https://easyplanningpoker.atlassian.net/servicedesk/customer/portal/34" target="_blank" rel="noopener noreferrer">{t('common.support', 'Support')}</a>
 
             {/* Языковой выпадающий список — полностью переиспользуем подход как на Login */}
             <div className="langDropdown" ref={langDdRef}>

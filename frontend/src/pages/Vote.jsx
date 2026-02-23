@@ -335,6 +335,7 @@ export default function Vote() {
             <nav className="nav nav--hidden-on-mobile" aria-label="Top navigation" />
             <div className="topbar__actions">
               <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
+              <a className="nav__link" href="https://easyplanningpoker.atlassian.net/servicedesk/customer/portal/34" target="_blank" rel="noopener noreferrer">{t('common.support', 'Support')}</a>
               <div className="langDropdown" ref={langDdRef}>
                 <button
                   type="button"
@@ -429,6 +430,7 @@ export default function Vote() {
             <nav className="nav nav--hidden-on-mobile" aria-label="Top navigation" />
             <div className="topbar__actions">
               <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
+              <a className="nav__link" href="https://easyplanningpoker.atlassian.net/servicedesk/customer/portal/34" target="_blank" rel="noopener noreferrer">{t('common.support', 'Support')}</a>
               <div className="langDropdown" ref={langDdRef}>
                 <button
                   type="button"
@@ -531,6 +533,7 @@ export default function Vote() {
 
           <div className="topbar__actions">
             <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a className="nav__link" href="https://easyplanningpoker.atlassian.net/servicedesk/customer/portal/34" target="_blank" rel="noopener noreferrer">{t('common.support', 'Support')}</a>
 
             <div className="langDropdown" ref={langDdRef}>
               <button

@@ -124,6 +124,7 @@ export default function Login() {
           <div className="topbar__actions">
             <a className="nav__link" href="#" onClick={(e)=>e.preventDefault()}>Guide (in the future)</a>
             <a className="nav__link" href="https://github.com/Zherikhov/EasyPlanningPoker" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a className="nav__link" href="https://easyplanningpoker.atlassian.net/servicedesk/customer/portal/34" target="_blank" rel="noopener noreferrer">{t('common.support', 'Support')}</a>
             {/* Кастомный селект языка для стабильной стилизации опций */}
             <div className="langDropdown" ref={langDdRef}>
               <button
