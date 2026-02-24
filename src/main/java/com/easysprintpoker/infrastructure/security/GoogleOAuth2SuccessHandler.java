@@ -182,7 +182,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         }
 
         String baseUrl = resolution.baseUrl;
-        String redirect = baseUrl + "/login?token=" + access;
+        String redirect = baseUrl + "/?token=" + access;
         // Логируем источник и конечный base URL (без полного токена)
         String tokenPreview = access.length() > 12 ? access.substring(0, 12) + "…" : access;
         log.info("OAuth2 redirect: source={}, baseUrl={}, tokenPreview={}", resolution.source, baseUrl, tokenPreview);

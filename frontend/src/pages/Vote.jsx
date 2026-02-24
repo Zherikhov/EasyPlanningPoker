@@ -45,10 +45,10 @@ export default function Vote() {
   useEffect(() => {
     const loadProfile = async () => {
       const t = window.localStorage.getItem('pp-token')
-      if (!t) { navigate('/login', { replace: true }); return }
+      if (!t) { navigate('/', { replace: true }); return }
       try {
         const res = await fetch('/api/v1/users/me', { headers: { 'Authorization': `Bearer ${t}` } })
-        if (res.status === 401) { navigate('/login', { replace: true }); return }
+        if (res.status === 401) { navigate('/', { replace: true }); return }
         if (res.ok) setProfile(await res.json())
       } catch (_) { /* ignore */ }
     }
@@ -113,7 +113,7 @@ export default function Vote() {
   // Загрузка краткой инфы о борде (для заголовка) и состояния голосования
   useEffect(() => {
     if (!token) {
-      navigate('/login', { replace: true })
+      navigate('/', { replace: true })
       return
     }
     const load = async () => {
@@ -125,7 +125,7 @@ export default function Vote() {
           fetch(`/api/v1/boards/${boardId}/vote/state`, { headers: { 'Authorization': `Bearer ${token}` } })
         ])
         if (resBoard.status === 401 || resState.status === 401) {
-          navigate('/login', { replace: true }); return
+          navigate('/', { replace: true }); return
         }
         if (!resBoard.ok) throw new Error('Failed to load board')
         if (!resState.ok) throw new Error('Failed to load voting state')
@@ -146,7 +146,7 @@ export default function Vote() {
     reloadingRef.current = true
     try {
       const res = await fetch(`/api/v1/boards/${boardId}/vote/state`, { headers: { 'Authorization': `Bearer ${token}` } })
-      if (res.status === 401) { navigate('/login', { replace: true }); return }
+      if (res.status === 401) { navigate('/', { replace: true }); return }
       if (res.ok) setState(await res.json())
     } catch (_) {
       // игнорируем единичные ошибки сети при опросе
@@ -203,7 +203,7 @@ export default function Vote() {
       await fetch('/api/v1/auth/logout', { method: 'POST', headers: t ? { 'Authorization': `Bearer ${t}` } : {} })
     } catch (_) {}
     try { window.localStorage.removeItem('pp-token') } catch (_) {}
-    navigate('/login', { replace: true })
+    navigate('/', { replace: true })
   }
 
   const [showProfile, setShowProfile] = useState(false)
@@ -240,7 +240,7 @@ export default function Vote() {
         },
         body: JSON.stringify({ valueLabel: label, numericValue: numeric ?? null })
       })
-      if (res.status === 401) { navigate('/login', { replace: true }); return }
+      if (res.status === 401) { navigate('/', { replace: true }); return }
       if (res.status === 403) { navigate('/boards', { replace: true }); return }
       if (res.ok) {
         const data = await res.json()
@@ -261,7 +261,7 @@ export default function Vote() {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ revealed: !state.revealed })
       })
-      if (res.status === 401) { navigate('/login', { replace: true }); return }
+      if (res.status === 401) { navigate('/', { replace: true }); return }
       if (res.ok) {
         setState(await res.json())
         reloadState()
@@ -290,7 +290,7 @@ export default function Vote() {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      if (res.status === 401) { navigate('/login', { replace: true }); return }
+      if (res.status === 401) { navigate('/', { replace: true }); return }
       if (res.ok) {
         setState(await res.json())
         reloadState()
@@ -307,7 +307,7 @@ export default function Vote() {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      if (res.status === 401) { navigate('/login', { replace: true }); return }
+      if (res.status === 401) { navigate('/', { replace: true }); return }
       if (res.ok) {
         setState(await res.json())
         reloadState()

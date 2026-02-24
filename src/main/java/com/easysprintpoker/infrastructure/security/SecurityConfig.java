@@ -44,6 +44,7 @@ public class SecurityConfig {
                                 "/favicon.ico",
                                 "/manifest*",
                                 "/robots.txt",
+                                "/sitemap.xml",
                                 "/assets/**",
                                 "/image/**",
                                 "/static/**",

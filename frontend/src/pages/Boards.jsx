@@ -44,7 +44,7 @@ export default function Boards() {
   useEffect(() => {
     const token = window.localStorage.getItem('pp-token')
     if (!token) {
-      navigate('/login', { replace: true })
+      navigate('/', { replace: true })
       return
     }
     const load = async () => {
@@ -53,7 +53,7 @@ export default function Boards() {
           headers: { 'Authorization': `Bearer ${token}` }
         })
         if (res.status === 401) {
-          navigate('/login', { replace: true })
+          navigate('/', { replace: true })
           return
         }
         if (!res.ok) throw new Error('Failed to load profile')
@@ -163,7 +163,7 @@ export default function Boards() {
       })
     } catch (_) { /* ignore */ }
     try { window.localStorage.removeItem('pp-token') } catch (_) {}
-    navigate('/login', { replace: true })
+    navigate('/', { replace: true })
   }
 
   const userName = useMemo(() => {
@@ -212,7 +212,7 @@ export default function Boards() {
           signal: controller.signal
         })
         if (res.status === 401) {
-          navigate('/login', { replace: true })
+          navigate('/', { replace: true })
           return
         }
         if (!res.ok) throw new Error('Failed to load boards')
@@ -278,7 +278,7 @@ export default function Boards() {
         body: JSON.stringify({ name, description: (newDesc||'').trim() })
       })
       if (res.status === 401) {
-        navigate('/login', { replace: true })
+        navigate('/', { replace: true })
         return
       }
       if (!res.ok) throw new Error('Failed to create board')
@@ -315,7 +315,7 @@ export default function Boards() {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (res.status === 401) {
-        navigate('/login', { replace: true })
+        navigate('/', { replace: true })
         return
       }
       if (!res.ok) throw new Error('Failed to delete board')

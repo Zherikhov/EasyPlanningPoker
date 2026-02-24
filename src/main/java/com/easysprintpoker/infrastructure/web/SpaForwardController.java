@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class SpaForwardController {
 
-    @GetMapping({"/login", "/register", "/boards", "/boards/**"})
+    @GetMapping({"/", "/login", "/register", "/boards", "/boards/**"})
     public String forwardToIndex() {
         // Важно: используем forward (а не redirect), чтобы отдать файл из static
         return "forward:/index.html";
